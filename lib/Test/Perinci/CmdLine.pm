@@ -8,15 +8,20 @@ use strict;
 use warnings;
 
 use Capture::Tiny qw(capture);
+use Data::Dmp qw(dmp);
+use File::Temp qw(tempdir tempfile);
 use Test::More 0.98;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(test_run test_complete);
+our @EXPORT_OK = qw(
+                       test_complete
+                       test_pericmd
+               );
 
-our $CLASS = "Perinci::CmdLine::Lite";
+our %SPEC;
 
-sub test_run {
+sub _test_run {
     my %args = @_;
 
     my $name = "test_run: " . ($args{name} // join(" ", @{$args{argv} // []}));
@@ -25,26 +30,19 @@ sub test_run {
         no strict 'refs';
         no warnings 'redefine';
 
-        local *{"$CLASS\::hook_after_get_meta"}          = $args{hook_after_get_meta}          if $args{hook_after_get_meta};
-        local *{"$CLASS\::hook_before_run"}              = $args{hook_before_run}              if $args{hook_before_run};
-        local *{"$CLASS\::hook_before_read_config_file"} = $args{hook_before_read_config_file} if $args{hook_before_read_config_file};
-        local *{"$CLASS\::hook_after_parse_argv"}        = $args{hook_after_parse_argv}        if $args{hook_after_parse_argv};
-        local *{"$CLASS\::hook_format_result"}           = $args{hook_format_result}           if $args{hook_format_result};
-        local *{"$CLASS\::hook_format_row"}              = $args{hook_format_row}              if $args{hook_format_row};
-        local *{"$CLASS\::hook_display_result"}          = $args{hook_display_result}          if $args{hook_display_result};
-        local *{"$CLASS\::hook_after_run"}               = $args{hook_after_run}               if $args{hook_after_run};
-
         my %cmdargs = %{$args{args}};
         $cmdargs{exit} = 0;
         $cmdargs{read_config} //= 0;
-        my $cmd = $CLASS->new(%cmdargs);
 
-        local @ARGV = @{$args{argv} // []};
         my ($stdout, $stderr);
         my $res;
         eval {
             ($stdout, $stderr) = capture {
-                $res = $cmd->run;
+                if ($CLASS =~ /::(Lite|Classic)$/) {
+                    local @ARGV = @{$args{argv} // []};
+                    my $cmd = $CLASS->new(%cmdargs);
+                    $res = $cmd->run;
+                }
             };
         };
         my $eval_err = $@;
@@ -72,7 +70,7 @@ sub test_run {
         }
 
         if ($args{posttest}) {
-            $args{posttest}->(\@ARGV, $stdout, $stderr, $res);
+            $args{posttest}->($stdout, $stderr, $res);
         }
     };
 }
@@ -111,8 +109,38 @@ sub test_complete {
     };
 }
 
+$SPEC{test_pericmd} = {
+    v => 1.1,
+    summary => 'Common test suite for Perinci::CmdLine::{Lite,Classic,Inline}',
+    args => {
+        class => {
+            summary => 'Which class are we testing',
+            schema => ['str*', in=>[qw/Lite Classic Inline/]],
+            req => 1,
+        },
+    },
+};
+sub test_pericmd {
+    my %args = @_;
+
+    my $cl = $args{class};
+    $cl =~ /^Perinci::CmdLine:://;
+    local $CLASS = "Perinci::CmdLine::$cl";
+
+    local $TEMPDIR = tempdir(CLEANUP => 1);
+
+    subtest 'help action' => sub {
+        _test_run(
+            args      => {url=>'/Perinci/Examples/noop'},
+            argv      => [qw/--help/],
+            exit_code => 0,
+            output_re => qr/- Do nothing.+^Other options:/ms,
+        );
+    };
+}
+
 1;
-# ABSTRACT: Test library for Perinci::CmdLine{::Classic,::Lite}
+# ABSTRACT: Test library for Perinci::CmdLine{::Classic,::Lite,::Inline}
 
 =head1 FUNCTIONS
 
