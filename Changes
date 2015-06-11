@@ -1,6 +1,8 @@
 Revision history for Test-Perinci-CmdLine
 
-1.14     2015-05-21 (PERLANCAR) (unreleased)
+1.14     2015-06-11 (PERLANCAR)
 
          - First release, split from Perinci-CmdLine-Lite dist to be more
-           independent.
+           independent. Become a test suite for all Perinci::CmdLine backends
+           (Inline, Classic, Lite). Currently the tests are absolutely minimal
+           (old tests have not been re-added to the suite).
