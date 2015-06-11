@@ -29,40 +29,6 @@ sub _dump {
     Data::Dumper::Dumper($_[0]);
 }
 
-sub test_complete {
-    my (%args) = @_;
-
-    my $cmd = 1;#$CLASS->new(%{$args{args}}, exit=>0);
-
-    local @ARGV = @{$args{argv} // []};
-
-    # $args{comp_line0} contains comp_line with '^' indicating where comp_point
-    # should be, the caret will be stripped. this is more convenient than
-    # counting comp_point manually.
-    my $comp_line  = $args{comp_line0};
-    defined ($comp_line) or die "BUG: comp_line0 not defined";
-    my $comp_point = index($comp_line, '^');
-    $comp_point >= 0 or
-        die "BUG: comp_line0 should contain ^ to indicate where comp_point is";
-    $comp_line =~ s/\^//;
-
-    local $ENV{COMP_LINE}  = $comp_line;
-    local $ENV{COMP_POINT} = $comp_point;
-
-    my ($stdout, $stderr);
-    my $res;
-    ($stdout, $stderr) = capture {
-        $res = $cmd->run;
-    };
-    my $exit_code = $res->[3]{'x.perinci.cmdline.base.exit_code'};
-
-    my $name = "test_complete: " . ($args{name} // $args{comp_line0});
-    subtest $name => sub {
-        is($exit_code, 0, "exit code = 0");
-        is($stdout // "", join("", map {"$_\n"} @{$args{result}}), "result");
-    };
-}
-
 $SPEC{pericmd_ok} = {
     v => 1.1,
     summary => 'Common test suite for Perinci::CmdLine::{Lite,Classic,Inline}',
