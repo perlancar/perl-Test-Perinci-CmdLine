@@ -134,7 +134,7 @@ sub pericmd_ok {
 }
 
 1;
-# ABSTRACT: Test library for Perinci::CmdLine{::Classic,::Lite,::Inline}
+# ABSTRACT:
 
 =head1 SEE ALSO
 
