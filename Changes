@@ -1,5 +1,10 @@
 Revision history for Test-Perinci-CmdLine
 
+1.15    2015-06-17 (PERLANCAR)
+
+	- Use Devel::Confess.
+
+
 1.14     2015-06-11 (PERLANCAR)
 
          - First release, split from Perinci-CmdLine-Lite dist to be more
