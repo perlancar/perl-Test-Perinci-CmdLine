@@ -6,6 +6,7 @@ package Test::Perinci::CmdLine;
 use 5.010001;
 use strict;
 use warnings;
+use Devel::Confess;
 
 use Capture::Tiny qw(capture);
 use Data::Dumper;
