@@ -1,5 +1,14 @@
 Revision history for Test-Perinci-CmdLine
 
+1.18    2015-06-18 (PERLANCAR)
+
+	- Use IPC::System::Options 0.13 to capture system()'s output without
+          interfering with Log::Any.
+
+        - Test that Perinci::CmdLine::Inline script can run with only core
+          modules.
+
+
 1.17    2015-06-18 (PERLANCAR)
 
 	- No functional changes.
