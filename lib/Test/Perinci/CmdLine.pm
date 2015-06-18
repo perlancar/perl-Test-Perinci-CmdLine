@@ -74,6 +74,7 @@ sub pericmd_ok {
         my @script;
         if ($class eq 'Perinci::CmdLine::Inline') {
             require Perinci::CmdLine::Inline;
+            $cli_args{include} = $test_args{inline_include} if $test_args{inline_include};
             my $res = Perinci::CmdLine::Inline::gen_inline_pericmd_script(%cli_args);
             die "Can't generate Perinci::CmdLine::Inline script: $res->[0] - $res->[1]"
                 unless $res->[0] == 200;
@@ -90,28 +91,30 @@ sub pericmd_ok {
         write_text($filename, join("", @script));
         note "Generated CLI script at $filename";
 
-        my ($stdout, $stderr);
+        my $output = [];
         my $res;
-        ($stdout, $stderr) = capture {
-            system(
-                {shell=>0, die=>0, lang=>'C'},
-                $^X,
-                @{ $test_args{argv} // []},
-            );
-        };
+        system(
+            {shell=>0, die=>0, log=>1, capture=>$output, lang=>'C'},
+            $^X,
+            # pericmd-inline script must work with only core modules
+            ($class eq 'Perinci::CmdLine::Inline' ? ("-Mlib::filter=allow_noncore,0".($test_args{inline_allow} ? ",allow=".join(";",@{$test_args{inline_allow}}) : "")) : ()),
+            $filename,
+            @{ $test_args{argv} // []},
+        );
+        note "Script's output [stdout, stderr]: ", explain $output;
         my $exit_code = $? >> 8;
 
         if (defined $test_args{exit_code}) {
             is($exit_code, $test_args{exit_code}, "exit_code");
         }
         if ($test_args{stdout_like}) {
-            like($stdout, $test_args{stdout_like}, "stdout_like");
+            like($output->[0], $test_args{stdout_like}, "stdout_like");
         }
         if ($test_args{stderr_like}) {
-            like($stderr, $test_args{stderr_like}, "stderr_like");
+            like($output->[1], $test_args{stderr_like}, "stderr_like");
         }
         if ($test_args{posttest}) {
-            $test_args{posttest}->($exit_code, $stdout, $stderr);
+            $test_args{posttest}->($exit_code, $output->[0], $output->[1]);
         }
     };
 
@@ -122,6 +125,7 @@ sub pericmd_ok {
             argv      => [qw/--help/],
             exit_code => 0,
             stdout_re => qr/- Do nothing.+^Other options:/ms,
+            inline_include => [qw/Perinci::Examples::Tiny/],
         );
     };
 
