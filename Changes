@@ -1,5 +1,12 @@
 Revision history for Test-Perinci-CmdLine
 
+1.16    2015-06-18 (PERLANCAR)
+
+	- No functional changes.
+
+	- Don't remove tempdir when DEBUG=1.
+
+
 1.15    2015-06-17 (PERLANCAR)
 
 	- Use Devel::Confess.
