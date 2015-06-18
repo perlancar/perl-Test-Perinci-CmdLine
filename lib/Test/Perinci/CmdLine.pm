@@ -118,7 +118,7 @@ sub pericmd_ok {
     subtest 'pericmd_ok test suite' => sub {
         $test_run->(
             name      => 'help action',
-            args      => {url=>'/Perinci/Examples/noop'},
+            args      => {url=>'/Perinci/Examples/Tiny/noop'},
             argv      => [qw/--help/],
             exit_code => 0,
             stdout_re => qr/- Do nothing.+^Other options:/ms,
