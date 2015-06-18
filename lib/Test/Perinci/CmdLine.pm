@@ -125,11 +125,13 @@ sub pericmd_ok {
         );
     };
 
-    if (Test::More->builder->is_passing) {
+    if (!Test::More->builder->is_passing) {
+        diag "there are failing tests, not deleting tempdir $tempdir";
+    } elsif ($ENV{DEBUG}) {
+        diag "DEBUG is true, not deleting tempdir $tempdir";
+    } else {
         note "all tests successful, deleting tempdir $tempdir";
         remove_tree($tempdir);
-    } else {
-        diag "there are failing tests, not deleting tempdir $tempdir";
     }
 
 }
