@@ -107,7 +107,10 @@ sub pericmd_ok {
         my $exit_code = $? >> 8;
 
         if (defined $test_args{exit_code}) {
-            is($exit_code, $test_args{exit_code}, "exit_code");
+            is($exit_code, $test_args{exit_code}, "exit_code") or do {
+                diag "Script's stdout: <$stdout>";
+                diag "Script's stderr: <$stderr>";
+           };
         }
         if ($test_args{stdout_like}) {
             like($stdout, $test_args{stdout_like}, "stdout_like");
