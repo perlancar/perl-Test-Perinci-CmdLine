@@ -52,6 +52,7 @@ sub pericmd_ok {
     my $tempdir = tempdir();
 
     my $test_run = sub {
+        use experimental 'smartmatch';
         no strict 'refs';
         no warnings 'redefine';
 
@@ -60,78 +61,132 @@ sub pericmd_ok {
         my $name = "run: " .
             ($test_args{name} // join(" ", @{$test_args{argv} // []}));
 
-        my %cli_args = %{
-            # use class-specific args if defined
-            ($class eq 'Perinci::CmdLine::Inline' ? $test_args{args_inline} :
-                 $class eq 'Perinci::CmdLine::Lite' ? $test_args{args_lite} :
-                 $test_args{args_classic}
-             )
-            // $test_args{args} // {}
-        };
-        $cli_args{read_config} //= 0;
+        subtest $name => sub {
+            my $tags = $test_args{tags} // [];
+            if ($class eq 'Perinci::CmdLine::Inline' && (
+                'subcommand' ~~ @$tags)) {
+                plan skip_all => "Not yet supported by pericmd-inline";
+                return;
+            }
 
-        # construct the cli script
-        my @script;
-        if ($class eq 'Perinci::CmdLine::Inline') {
-            require Perinci::CmdLine::Inline;
-            $cli_args{include} = $test_args{inline_include} if $test_args{inline_include};
-            my $res = Perinci::CmdLine::Inline::gen_inline_pericmd_script(%cli_args);
-            die "Can't generate Perinci::CmdLine::Inline script: $res->[0] - $res->[1]"
-                unless $res->[0] == 200;
-            @script = ($res->[2]);
-        } else {
-            push @script, "use 5.010; use strict; use warnings;\n";
-            push @script, "use $class;\n";
-            push @script, "my \$cli = $class->new(\@{", _dump([%cli_args]), '});', "\n";
-            push @script, "\$cli->run;\n";
-        }
+            my %cli_args = %{
+                # use class-specific args if defined
+                ($class eq 'Perinci::CmdLine::Inline' ?
+                     $test_args{args_inline} :
+                     $class eq 'Perinci::CmdLine::Lite' ?
+                     $test_args{args_lite} :
+                     $test_args{args_classic}
+                 )
+                    // $test_args{args} // {}
+                };
+            $cli_args{read_config} //= 0;
 
-        # write cli script to tempfile
-        my ($fh, $filename) = tempfile('cliXXXXXXXX', DIR=>$tempdir);
-        write_text($filename, join("", @script));
-        note "Generated CLI script at $filename";
+            # construct the cli script
+            my @script;
+            if ($class eq 'Perinci::CmdLine::Inline') {
+                require Perinci::CmdLine::Inline;
+                $cli_args{include} = $test_args{inline_include}
+                    if $test_args{inline_include};
+                my $res = Perinci::CmdLine::Inline::gen_inline_pericmd_script(
+                    %cli_args);
+                die "Can't generate Perinci::CmdLine::Inline script: ".
+                    "$res->[0] - $res->[1]" unless $res->[0] == 200;
+                @script = ($res->[2]);
+            } else {
+                push @script, "use 5.010; use strict; use warnings;\n";
+                push @script, "use $class;\n";
+                push @script, "my \$cli = $class->new(\@{",
+                    _dump([%cli_args]), '});', "\n";
+                push @script, "\$cli->run;\n";
+            }
 
-        my $stdout;
-        my $stderr;
-        my $res;
-        system(
-            {shell=>0, die=>0, log=>1, capture_stdout=>\$stdout, capture_stderr=>\$stderr, lang=>'C'},
-            $^X,
-            # pericmd-inline script must work with only core modules
-            ($class eq 'Perinci::CmdLine::Inline' ? ("-Mlib::filter=allow_noncore,0".($test_args{inline_allow} ? ",allow=".join(";",@{$test_args{inline_allow}}) : "")) : ()),
-            $filename,
-            @{ $test_args{argv} // []},
-        );
-        note "Script's stdout: <$stdout>";
-        note "Script's stderr: <$stderr>";
-        my $exit_code = $? >> 8;
+            # write cli script to tempfile
+            my ($fh, $filename) = tempfile('cliXXXXXXXX', DIR=>$tempdir);
+            write_text($filename, join("", @script));
+            note "Generated CLI script at $filename";
 
-        if (defined $test_args{exit_code}) {
-            is($exit_code, $test_args{exit_code}, "exit_code") or do {
-                diag "Script's stdout: <$stdout>";
-                diag "Script's stderr: <$stderr>";
-           };
-        }
-        if ($test_args{stdout_like}) {
-            like($stdout, $test_args{stdout_like}, "stdout_like");
-        }
-        if ($test_args{stderr_like}) {
-            like($stderr, $test_args{stderr_like}, "stderr_like");
-        }
-        if ($test_args{posttest}) {
-            $test_args{posttest}->($exit_code, $stdout, $stderr);
-        }
-    };
+            my $stdout;
+            my $stderr;
+            my $res;
+            system(
+                {shell=>0, die=>0, log=>1,
+                 capture_stdout=>\$stdout, capture_stderr=>\$stderr, lang=>'C'},
+                $^X,
+                # pericmd-inline script must work with only core modules
+                ($class eq 'Perinci::CmdLine::Inline' ?
+                     ("-Mlib::filter=allow_noncore,0".
+                      ($test_args{inline_allow} ? ",allow=".
+                       join(";",@{$test_args{inline_allow}}) : "")) : ()),
+                $filename,
+                @{ $test_args{argv} // []},
+            );
+            note "Script's stdout: <$stdout>";
+            note "Script's stderr: <$stderr>";
+            my $exit_code = $? >> 8;
+
+            if (defined $test_args{exit_code}) {
+                is($exit_code, $test_args{exit_code}, "exit_code") or do {
+                    diag "Script's stdout: <$stdout>";
+                    diag "Script's stderr: <$stderr>";
+                };
+            }
+            if ($test_args{stdout_like}) {
+                like($stdout, $test_args{stdout_like}, "stdout_like");
+            }
+            if ($test_args{stdout_unlike}) {
+                unlike($stdout, $test_args{stdout_unlike}, "stdout_unlike");
+            }
+            if ($test_args{stderr_like}) {
+                like($stderr, $test_args{stderr_like}, "stderr_like");
+            }
+            if ($test_args{stderr_unlike}) {
+                unlike($stderr, $test_args{stderr_unlike}, "stderr_unlike");
+            }
+            if ($test_args{posttest}) {
+                $test_args{posttest}->($exit_code, $stdout, $stderr);
+            }
+        }; # subtest
+    }; # test_run
 
     subtest 'pericmd_ok test suite' => sub {
-        $test_run->(
-            name      => 'help action',
-            args      => {url=>'/Perinci/Examples/Tiny/noop'},
-            argv      => [qw/--help/],
-            exit_code => 0,
-            stdout_re => qr/- Do nothing.+^Other options:/ms,
-            inline_include => [qw/Perinci::Examples::Tiny/],
-        );
+        subtest 'help action' => sub {
+            $test_run->(
+                args        => {url => '/Perinci/Examples/Tiny/noop'},
+                argv        => [qw/--help/],
+                exit_code   => 0,
+                stdout_like => qr/^Usage.+^([^\n]*)Options/ims,
+                inline_include => [qw/Perinci::Examples::Tiny/],
+            );
+            $test_run->(
+                tags        => [qw/subcommand/],
+                name        => 'help for cli with subcommands',
+                args        => {
+                    url => '/Perinci/Examples/Tiny/',
+                    subcommands => {
+                        sc1 => {url=>'/Perinci/Examples/Tiny/noop'},
+                    },
+                },
+                argv        => [qw/--help/],
+                exit_code   => 0,
+                stdout_like => qr/^Subcommands.+\bsc1\b/ms,
+                #inline_include => [qw/Perinci::Examples::Tiny/],
+            );
+            $test_run->(
+                tags          => [qw/subcommand/],
+                name          => 'help on a subcommand',
+                args          => {
+                    url => '/Perinci/Examples/Tiny/',
+                    subcommands => {
+                        sc1 => {url=>'/Perinci/Examples/Tiny/noop'},
+                    },
+                },
+                argv          => [qw/sc1 --help/],
+                exit_code     => 0,
+                stdout_like   => qr/Do nothing.+^Usage/ms,
+                stdout_unlike => qr/^Subcommands.+\bsc1\b/ms,
+                #inline_include => [qw/Perinci::Examples::Tiny/],
+            );
+        };
     };
 
     if (!Test::More->builder->is_passing) {
@@ -142,7 +197,6 @@ sub pericmd_ok {
         note "all tests successful, deleting tempdir $tempdir";
         remove_tree($tempdir);
     }
-
 }
 
 1;
@@ -152,3 +206,11 @@ sub pericmd_ok {
 
 Supported Perinci::CmdLine backends: L<Perinci::CmdLine::Inline>,
 L<Perinci::CmdLine::Lite>, L<Perinci::CmdLine::Classic>.
+
+
+=head1 ENVIRONMENT
+
+=head2 DEBUG => bool
+
+If set to 1, then temporary files (e.g. generated scripts for testing) will not
+be cleaned up, so you can inspect them.
