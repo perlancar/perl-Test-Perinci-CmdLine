@@ -1,5 +1,10 @@
 Revision history for Test-Perinci-CmdLine
 
+1.21    2015-08-01 (PERLANCAR)
+
+	- Add more tests.
+
+
 1.20    2015-07-10 (PERLANCAR)
 
 	- Print out scripts's stdout/stderr on exit_code failed test [CT].
