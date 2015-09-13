@@ -43,6 +43,12 @@ $SPEC{pericmd_ok} = {
             ]],
             req => 1,
         },
+        include_tags => {
+            schema => ['array*', of=>'str*'],
+        },
+        exclude_tags => {
+            schema => ['array*', of=>'str*'],
+        },
     },
 };
 sub pericmd_ok {
@@ -50,6 +56,21 @@ sub pericmd_ok {
 
     my $class   = $suite_args{class};
     my $tempdir = tempdir();
+
+    my $include_tags = $suite_args{include_tags} // do {
+        if (defined $ENV{TEST_PERICMD_INCLUDE_TAGS}) {
+            [split /,/, $ENV{TEST_PERICMD_INCLUDE_TAGS}];
+        } else {
+            undef;
+        }
+    };
+    my $exclude_tags = $suite_args{exclude_tags} // do {
+        if (defined $ENV{TEST_PERICMD_EXCLUDE_TAGS}) {
+            [split /,/, $ENV{TEST_PERICMD_EXCLUDE_TAGS}];
+        } else {
+            undef;
+        }
+    };
 
     my $test_run = sub {
         use experimental 'smartmatch';
@@ -63,10 +84,27 @@ sub pericmd_ok {
 
         subtest $name => sub {
             my $tags = $test_args{tags} // [];
-            if ($class eq 'Perinci::CmdLine::Inline' && (
-                'subcommand' ~~ @$tags)) {
-                plan skip_all => "Not yet supported by pericmd-inline";
-                return;
+
+            if ($include_tags) {
+                my $found;
+                for (@$tags) {
+                    if ($_ ~~ @$include_tags) {
+                        $found++; last;
+                    }
+                }
+                unless ($found) {
+                    plan skip_all => 'Does not have any of the '.
+                        'include_tag(s): ['. join(", ", @$include_tags) . ']';
+                    return;
+                }
+            }
+            if ($exclude_tags) {
+                for (@$tags) {
+                    if ($_ ~~ @$exclude_tags) {
+                        plan skip_all => "Has one of the exclude_tag: $_";
+                        return;
+                    }
+                }
             }
 
             my %cli_args = %{
@@ -150,9 +188,18 @@ sub pericmd_ok {
 
     subtest 'pericmd_ok test suite' => sub {
         subtest 'help action' => sub {
+            ok 1, "dummy"; # just to avoid no tests being run if all excluded by tags
             $test_run->(
                 args        => {url => '/Perinci/Examples/Tiny/noop'},
                 argv        => [qw/--help/],
+                exit_code   => 0,
+                stdout_like => qr/^Usage.+^([^\n]*)Options/ims,
+                inline_include => [qw/Perinci::Examples::Tiny/],
+            );
+            $test_run->(
+                name        => 'extra args is okay',
+                args        => {url => '/Perinci/Examples/Tiny/noop'},
+                argv        => [qw/--help 1 2 3/],
                 exit_code   => 0,
                 stdout_like => qr/^Usage.+^([^\n]*)Options/ims,
                 inline_include => [qw/Perinci::Examples::Tiny/],
@@ -187,6 +234,16 @@ sub pericmd_ok {
                 #inline_include => [qw/Perinci::Examples::Tiny/],
             );
         };
+        subtest 'run action' => sub {
+            ok 1, "dummy"; # just to avoid no tests being run if all excluded by tags
+            $test_run->(
+                name           => 'extra args not allowed',
+                args           => {url => '/Perinci/Examples/Tiny/noop'},
+                inline_include => ['Perinci::Examples::Tiny'],
+                argv           => [qw/1/],
+                exit_code      => 200,
+            );
+        },
     };
 
     if (!Test::More->builder->is_passing) {
@@ -214,3 +271,11 @@ L<Perinci::CmdLine::Lite>, L<Perinci::CmdLine::Classic>.
 
 If set to 1, then temporary files (e.g. generated scripts for testing) will not
 be cleaned up, so you can inspect them.
+
+=head2 TEST_PERICMD_EXCLUDE_TAGS => str
+
+To set default for C<pericmd_ok()>'s C<exclude_tags> argument.
+
+=head2 TEST_PERICMD_INCLUDE_TAGS => str
+
+To set default for C<pericmd_ok()>'s C<include_tags> argument.
