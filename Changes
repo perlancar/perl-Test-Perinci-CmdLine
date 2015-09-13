@@ -1,5 +1,18 @@
 Revision history for Test-Perinci-CmdLine
 
+1.22    2015-09-13 (PERLANCAR)
+
+	- Add options: include_tags, exclude_tags.
+
+        - Observe TEST_PERICMD_INCLUDE_TAGS & TEST_PERICMD_EXCLUDE_TAGS env vars.
+
+        - Add test to suite: extraneous arguments not allowed.
+
+        - [Incompatible change] No special tag excludes are put for
+          'Perinci::CmdLine::Inline'. Perinci::CmdLine::Inline's dist must
+          exclude unsupported tests by itself.
+
+
 1.21    2015-08-01 (PERLANCAR)
 
 	- Add more tests.
