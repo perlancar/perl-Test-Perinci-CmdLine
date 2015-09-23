@@ -243,6 +243,14 @@ sub pericmd_ok {
                 argv           => [qw/1/],
                 exit_code      => 200,
             );
+            $test_run->(
+                name           => 'arg that contains dot can be handled',
+                args           => {url => '/Perinci/Examples/Tiny/Args/has_dot_args'},
+                inline_include => ['Perinci::Examples::Tiny::Args'],
+                argv           => [qw/3 7/],
+                exit_code      => 0,
+                stdout_like    => qr/^21$/,
+            );
         },
     };
 
