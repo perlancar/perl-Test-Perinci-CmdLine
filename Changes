@@ -1,5 +1,10 @@
 Revision history for Test-Perinci-CmdLine
 
+1.23    2015-09-23 (PERLANCAR)
+
+	- Add test for handling arguments that contain dot, e.g. 'foo.bar'.
+
+
 1.22    2015-09-13 (PERLANCAR)
 
 	- Add options: include_tags, exclude_tags.
