@@ -8,6 +8,7 @@ use strict;
 use warnings;
 use Devel::Confess;
 
+use App::GenPericmdScript qw(gen_pericmd_script);
 use Capture::Tiny qw(capture);
 use Data::Dumper;
 use File::Path qw(remove_tree);
@@ -107,7 +108,7 @@ sub pericmd_ok {
                 }
             }
 
-            my %cli_args = %{
+            my %gen_args = %{
                 # use class-specific args if defined
                 ($class eq 'Perinci::CmdLine::Inline' ?
                      $test_args{args_inline} :
@@ -117,30 +118,17 @@ sub pericmd_ok {
                  )
                     // $test_args{args} // {}
                 };
-            $cli_args{read_config} //= 0;
 
-            # construct the cli script
-            my @script;
-            if ($class eq 'Perinci::CmdLine::Inline') {
-                require Perinci::CmdLine::Inline;
-                $cli_args{include} = $test_args{inline_include}
-                    if $test_args{inline_include};
-                my $res = Perinci::CmdLine::Inline::gen_inline_pericmd_script(
-                    %cli_args);
-                die "Can't generate Perinci::CmdLine::Inline script: ".
-                    "$res->[0] - $res->[1]" unless $res->[0] == 200;
-                @script = ($res->[2]);
-            } else {
-                push @script, "use 5.010; use strict; use warnings;\n";
-                push @script, "use $class;\n";
-                push @script, "my \$cli = $class->new(\@{",
-                    _dump([%cli_args]), '});', "\n";
-                push @script, "\$cli->run;\n";
-            }
+            $gen_args{read_config} //= 0;
+            $gen_args{read_env} //= 0;
 
-            # write cli script to tempfile
+            # generate cli script to tempfile
             my ($fh, $filename) = tempfile('cliXXXXXXXX', DIR=>$tempdir);
-            write_text($filename, join("", @script));
+            $gen_args{output_file} = $filename;
+            $gen_args{overwrite} = 1;
+            my $gen_res = gen_pericmd_script(%gen_args);
+            die "Can't generate CLI script at $filename: ".
+                "$gen_res->[0] - $gen_res->[1]" unless $gen_res->[0] == 200;
             note "Generated CLI script at $filename";
 
             my $stdout;
@@ -209,9 +197,9 @@ sub pericmd_ok {
                 name        => 'help for cli with subcommands',
                 args        => {
                     url => '/Perinci/Examples/Tiny/',
-                    subcommands => {
-                        sc1 => {url=>'/Perinci/Examples/Tiny/noop'},
-                    },
+                    subcommands => [
+                        'sc1:/Perinci/Examples/Tiny/noop',
+                    ],
                 },
                 argv        => [qw/--help/],
                 exit_code   => 0,
@@ -223,9 +211,9 @@ sub pericmd_ok {
                 name          => 'help on a subcommand',
                 args          => {
                     url => '/Perinci/Examples/Tiny/',
-                    subcommands => {
-                        sc1 => {url=>'/Perinci/Examples/Tiny/noop'},
-                    },
+                    subcommands => [
+                        'sc1:/Perinci/Examples/Tiny/noop',
+                    ],
                 },
                 argv          => [qw/sc1 --help/],
                 exit_code     => 0,
