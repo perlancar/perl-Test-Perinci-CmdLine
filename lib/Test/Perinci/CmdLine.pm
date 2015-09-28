@@ -234,10 +234,10 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
             ok 1, "dummy"; # just to avoid no tests being run if all excluded by tags
             $test_cli->(
                 gen_args    => {url => '/Perinci/Examples/Tiny/noop'},
+                inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
                 argv        => [qw/--help/],
                 exit_code   => 0,
                 stdout_like => qr/^Usage.+^([^\n]*)Options/ims,
-                inline_include => [qw/Perinci::Examples::Tiny/],
             );
             $test_cli->(
                 name        => 'extra args is okay',
@@ -278,6 +278,18 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
             );
         }; # help action
 
+        subtest 'version action' => sub {
+            ok 1, "dummy"; # just to avoid no tests being run if all excluded by tags
+            require Perinci::Examples::Tiny;
+            $test_cli->(
+                gen_args    => {url => '/Perinci/Examples/Tiny/noop'},
+                inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
+                argv        => [qw/--version/],
+                exit_code   => 0,
+                stdout_like => qr/\Q$Perinci::Examples::Tiny::VERSION\E/,
+            );
+        }; # version action
+
         subtest 'run action' => sub {
             ok 1, "dummy"; # just to avoid no tests being run if all excluded by tags
             $test_cli->(
@@ -306,9 +318,10 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                 exit_code      => 0,
                 stdout_like    => qr/^21$/,
             );
-        }, # run action
+        }; # run action
 
         subtest 'completion' => sub {
+            ok 1, "dummy"; # just to avoid no tests being run if all excluded by tags
             $test_cli_completion->(
                 name           => 'self-completion works',
                 gen_args       => {url => '/Perinci/Examples/Tiny/odd_even'},
@@ -318,15 +331,34 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                 answer         => ['--number'],
             );
             $test_cli_completion->(
-                tags           => ['embedded-meta'],
-                name           => 'completion for embedded function+meta works',
-                gen_args       => {
-                    url => '/main/square',
-                    code_before_instantiate_cmdline => $code_embed,
+                tags           => ['subcommand'],
+                name           => 'completion of subcommand name',
+                gen_args    => {
+                    url => '/Perinci/Examples/Tiny/',
+                    subcommands => [
+                        'sc1:/Perinci/Examples/Tiny/noop',
+                        'sc2:/Perinci/Examples/Tiny/odd_even',
+                    ],
                 },
+                inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
                 argv           => [],
-                comp_line0     => 'cmd --nu^',
-                answer         => ['--num'],
+                comp_line0     => 'cmd sc^',
+                answer         => ['sc1', 'sc2'],
+            );
+            $test_cli_completion->(
+                tags           => ['subcommand'],
+                name           => 'completion of subcommand option',
+                gen_args    => {
+                    url => '/Perinci/Examples/Tiny/',
+                    subcommands => [
+                        'sc1:/Perinci/Examples/Tiny/noop',
+                        'sc2:/Perinci/Examples/Tiny/odd_even',
+                    ],
+                },
+                inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
+                argv           => [],
+                comp_line0     => 'cmd sc2 --nu^',
+                answer         => ['--number'],
             );
         }; # completion
 
