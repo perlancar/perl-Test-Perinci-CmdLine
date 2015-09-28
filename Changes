@@ -1,5 +1,15 @@
 Revision history for Test-Perinci-CmdLine
 
+1.24    2015-09-28 (PERLANCAR)
+
+        - Use App::GenPericmdScript to reduce code duplication.
+
+        - Some refactoring.
+
+        - Add tests: completion, embedded function+meta, version action,
+          subcommands action.
+
+
 1.23    2015-09-23 (PERLANCAR)
 
 	- Add test for handling arguments that contain dot, e.g. 'foo.bar'.
