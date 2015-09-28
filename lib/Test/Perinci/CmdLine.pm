@@ -73,15 +73,15 @@ sub pericmd_ok {
         }
     };
 
-    my $test_run = sub {
+    # create a pericmd script, run it, test the result
+    my $test_cli = sub {
         use experimental 'smartmatch';
         no strict 'refs';
         no warnings 'redefine';
 
         my %test_args = @_;
 
-        my $name = "run: " .
-            ($test_args{name} // join(" ", @{$test_args{argv} // []}));
+        my $name = $test_args{name} // join(" ", @{$test_args{argv} // []});
 
         subtest $name => sub {
             my $tags = $test_args{tags} // [];
@@ -108,21 +108,33 @@ sub pericmd_ok {
                 }
             }
 
-            my %gen_args = %{
-                # use class-specific args if defined
-                ($class eq 'Perinci::CmdLine::Inline' ?
-                     $test_args{args_inline} :
-                     $class eq 'Perinci::CmdLine::Lite' ?
-                     $test_args{args_lite} :
-                     $test_args{args_classic}
-                 )
-                    // $test_args{args} // {}
-                };
+            my %gen_args;
+
+            $gen_args{cmdline} = $class;
+
+            if ($test_args{gen_args}) {
+                $gen_args{$_} = $test_args{gen_args}{$_}
+                    for keys %{$test_args{gen_args}};
+            }
+            if ($class eq 'Perinci::CmdLine::Lite' &&
+                    $test_args{lite_gen_args}) {
+                $gen_args{$_} = $test_args{lite_gen_args}{$_}
+                    for keys %{$test_args{lite_gen_args}};
+            }
+            if ($class eq 'Perinci::CmdLine::Classic' &&
+                    $test_args{classic_gen_args}) {
+                $gen_args{$_} = $test_args{classic_gen_args}{$_}
+                    for keys %{$test_args{classic_gen_args}};
+            }
+            if ($class eq 'Perinci::CmdLine::Inline' &&
+                    $test_args{inline_gen_args}) {
+                $gen_args{$_} = $test_args{inline_gen_args}{$_}
+                    for keys %{$test_args{inline_gen_args}};
+            }
 
             $gen_args{read_config} //= 0;
             $gen_args{read_env} //= 0;
 
-            # generate cli script to tempfile
             my ($fh, $filename) = tempfile('cliXXXXXXXX', DIR=>$tempdir);
             $gen_args{output_file} = $filename;
             $gen_args{overwrite} = 1;
@@ -136,6 +148,7 @@ sub pericmd_ok {
             my $res;
             system(
                 {shell=>0, die=>0, log=>1,
+                 ((env=>$test_args{env}) x !!$test_args{env}),
                  capture_stdout=>\$stdout, capture_stderr=>\$stderr, lang=>'C'},
                 $^X,
                 # pericmd-inline script must work with only core modules
@@ -172,74 +185,151 @@ sub pericmd_ok {
                 $test_args{posttest}->($exit_code, $stdout, $stderr);
             }
         }; # subtest
-    }; # test_run
+    }; # test_cli
+
+    my $test_cli_completion = sub {
+        my %args = @_;
+
+        my $comp_line = delete($args{comp_line0});
+        my $answer = delete($args{answer});
+
+        my $comp_point;
+        if (($comp_point = index($comp_line, '^')) >= 0) {
+            $comp_line =~ s/\^//;
+        } else {
+            $comp_point = length($comp_line);
+        }
+
+        $test_cli->(
+            %args,
+            tags => [@{$args{tags} // []}, 'completion'],
+            env => {
+                COMP_LINE  => $comp_line,
+                COMP_POINT => $comp_point,
+            },
+            posttest => sub {
+                my ($exit_code, $stdout, $stderr) = @_;
+                my @answer = split /^/m, $stdout;
+                for (@answer) {
+                    chomp;
+                    s/\\(.)/$1/g;
+                }
+                if ($answer) {
+                    is_deeply(\@answer, $answer, 'answer')
+                        or diag explain \@answer;
+                }
+            },
+        );
+    };
 
     subtest 'pericmd_ok test suite' => sub {
+
+        my $code_embed = q!
+our %SPEC;
+$SPEC{square} = {v=>1.1, args=>{num=>{schema=>'num*', req=>1, pos=>0}}};
+sub square { my %args=@_; [200, "OK", $args{num}**2] }
+!;
+
         subtest 'help action' => sub {
             ok 1, "dummy"; # just to avoid no tests being run if all excluded by tags
-            $test_run->(
-                args        => {url => '/Perinci/Examples/Tiny/noop'},
+            $test_cli->(
+                gen_args    => {url => '/Perinci/Examples/Tiny/noop'},
                 argv        => [qw/--help/],
                 exit_code   => 0,
                 stdout_like => qr/^Usage.+^([^\n]*)Options/ims,
                 inline_include => [qw/Perinci::Examples::Tiny/],
             );
-            $test_run->(
+            $test_cli->(
                 name        => 'extra args is okay',
-                args        => {url => '/Perinci/Examples/Tiny/noop'},
+                gen_args    => {url => '/Perinci/Examples/Tiny/noop'},
+                inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
                 argv        => [qw/--help 1 2 3/],
                 exit_code   => 0,
                 stdout_like => qr/^Usage.+^([^\n]*)Options/ims,
-                inline_include => [qw/Perinci::Examples::Tiny/],
             );
-            $test_run->(
+            $test_cli->(
                 tags        => [qw/subcommand/],
                 name        => 'help for cli with subcommands',
-                args        => {
+                gen_args    => {
                     url => '/Perinci/Examples/Tiny/',
                     subcommands => [
                         'sc1:/Perinci/Examples/Tiny/noop',
                     ],
                 },
+                inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
                 argv        => [qw/--help/],
                 exit_code   => 0,
                 stdout_like => qr/^Subcommands.+\bsc1\b/ms,
-                #inline_include => [qw/Perinci::Examples::Tiny/],
             );
-            $test_run->(
+            $test_cli->(
                 tags          => [qw/subcommand/],
                 name          => 'help on a subcommand',
-                args          => {
+                gen_args      => {
                     url => '/Perinci/Examples/Tiny/',
                     subcommands => [
                         'sc1:/Perinci/Examples/Tiny/noop',
                     ],
                 },
+                inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
                 argv          => [qw/sc1 --help/],
                 exit_code     => 0,
                 stdout_like   => qr/Do nothing.+^Usage/ms,
                 stdout_unlike => qr/^Subcommands.+\bsc1\b/ms,
-                #inline_include => [qw/Perinci::Examples::Tiny/],
             );
-        };
+        }; # help action
+
         subtest 'run action' => sub {
             ok 1, "dummy"; # just to avoid no tests being run if all excluded by tags
-            $test_run->(
+            $test_cli->(
+                tags           => ['embedded-meta'],
+                name           => 'embedded function+meta works',
+                gen_args       => {
+                    url => '/main/square',
+                    code_before_instantiate_cmdline => $code_embed,
+                },
+                argv           => [qw/12/],
+                exit_code      => 0,
+                stdout_like    => qr/^144$/,
+            );
+            $test_cli->(
                 name           => 'extra args not allowed',
-                args           => {url => '/Perinci/Examples/Tiny/noop'},
-                inline_include => ['Perinci::Examples::Tiny'],
+                gen_args       => {url => '/Perinci/Examples/Tiny/noop'},
+                inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
                 argv           => [qw/1/],
                 exit_code      => 200,
             );
-            $test_run->(
+            $test_cli->(
                 name           => 'arg that contains dot can be handled',
-                args           => {url => '/Perinci/Examples/Tiny/Args/has_dot_args'},
-                inline_include => ['Perinci::Examples::Tiny::Args'],
+                gen_args       => {url => '/Perinci/Examples/Tiny/Args/has_dot_args'},
+                inline_gen_args => {load_module=>['Perinci::Examples::Tiny::Args']},
                 argv           => [qw/3 7/],
                 exit_code      => 0,
                 stdout_like    => qr/^21$/,
             );
-        },
+        }, # run action
+
+        subtest 'completion' => sub {
+            $test_cli_completion->(
+                name           => 'self-completion works',
+                gen_args       => {url => '/Perinci/Examples/Tiny/odd_even'},
+                inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
+                argv           => [],
+                comp_line0     => 'cmd --nu^',
+                answer         => ['--number'],
+            );
+            $test_cli_completion->(
+                tags           => ['embedded-meta'],
+                name           => 'completion for embedded function+meta works',
+                gen_args       => {
+                    url => '/main/square',
+                    code_before_instantiate_cmdline => $code_embed,
+                },
+                argv           => [],
+                comp_line0     => 'cmd --nu^',
+                answer         => ['--num'],
+            );
+        }; # completion
+
     };
 
     if (!Test::More->builder->is_passing) {
