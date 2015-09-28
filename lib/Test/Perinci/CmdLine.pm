@@ -31,41 +31,20 @@ sub _dump {
     Data::Dumper::Dumper($_[0]);
 }
 
-$SPEC{pericmd_ok} = {
-    v => 1.1,
-    summary => 'Common test suite for Perinci::CmdLine::{Lite,Classic,Inline}',
-    args => {
-        class => {
-            summary => 'Which class are we testing',
-            schema => ['str*', in=>[
-                'Perinci::CmdLine::Lite',
-                'Perinci::CmdLine::Classic',
-                'Perinci::CmdLine::Inline',
-            ]],
-            req => 1,
-        },
-        include_tags => {
-            schema => ['array*', of=>'str*'],
-        },
-        exclude_tags => {
-            schema => ['array*', of=>'str*'],
-        },
-    },
-};
-sub pericmd_ok {
-    my %suite_args = @_;
+sub _run_test_group {
+    my %testgroup_args = @_;
 
-    my $class   = $suite_args{class};
-    my $tempdir = tempdir();
+    my $class   = $testgroup_args{class};
+    my $tempdir = $testgroup_args{tempdir} // tempdir();
 
-    my $include_tags = $suite_args{include_tags} // do {
+    my $include_tags = $testgroup_args{include_tags} // do {
         if (defined $ENV{TEST_PERICMD_INCLUDE_TAGS}) {
             [split /,/, $ENV{TEST_PERICMD_INCLUDE_TAGS}];
         } else {
             undef;
         }
     };
-    my $exclude_tags = $suite_args{exclude_tags} // do {
+    my $exclude_tags = $testgroup_args{exclude_tags} // do {
         if (defined $ENV{TEST_PERICMD_EXCLUDE_TAGS}) {
             [split /,/, $ENV{TEST_PERICMD_EXCLUDE_TAGS}];
         } else {
@@ -222,32 +201,70 @@ sub pericmd_ok {
         );
     };
 
-    subtest 'pericmd_ok test suite' => sub {
+    subtest $testgroup_args{group_name} => sub {
+        ok 1, "dummy"; # just to avoid no tests being run if all excluded by tags
+        for my $test (@{ $testgroup_args{tests} // [] }) {
+            $test_cli->(%$test);
+        }
+        for my $test (@{ $testgroup_args{completion_tests} // [] }) {
+            $test_cli_completion->(%$test);
+        }
+    }
+}
 
-        my $code_embed = q!
+$SPEC{pericmd_ok} = {
+    v => 1.1,
+    summary => 'Common test suite for Perinci::CmdLine::{Lite,Classic,Inline}',
+    args => {
+        class => {
+            summary => 'Which class are we testing',
+            schema => ['str*', in=>[
+                'Perinci::CmdLine::Lite',
+                'Perinci::CmdLine::Classic',
+                'Perinci::CmdLine::Inline',
+            ]],
+            req => 1,
+        },
+        include_tags => {
+            schema => ['array*', of=>'str*'],
+        },
+        exclude_tags => {
+            schema => ['array*', of=>'str*'],
+        },
+    },
+};
+sub pericmd_ok {
+    my %suite_args = @_;
+
+    my $tempdir = tempdir();
+
+    my $code_embed = q!
 our %SPEC;
 $SPEC{square} = {v=>1.1, args=>{num=>{schema=>'num*', req=>1, pos=>0}}};
 sub square { my %args=@_; [200, "OK", $args{num}**2] }
 !;
 
-        subtest 'help action' => sub {
-            ok 1, "dummy"; # just to avoid no tests being run if all excluded by tags
-            $test_cli->(
+    _run_test_group(
+        %suite_args,
+        tempdir => $tempdir,
+        group_name => 'help action',
+        tests => [
+            {
                 gen_args    => {url => '/Perinci/Examples/Tiny/noop'},
                 inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
                 argv        => [qw/--help/],
                 exit_code   => 0,
                 stdout_like => qr/^Usage.+^([^\n]*)Options/ims,
-            );
-            $test_cli->(
+            },
+            {
                 name        => 'extra args is okay',
                 gen_args    => {url => '/Perinci/Examples/Tiny/noop'},
                 inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
                 argv        => [qw/--help 1 2 3/],
                 exit_code   => 0,
                 stdout_like => qr/^Usage.+^([^\n]*)Options/ims,
-            );
-            $test_cli->(
+            },
+            {
                 tags        => [qw/subcommand/],
                 name        => 'help for cli with subcommands',
                 gen_args    => {
@@ -260,8 +277,8 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                 argv        => [qw/--help/],
                 exit_code   => 0,
                 stdout_like => qr/^Subcommands.+\bsc1\b/ms,
-            );
-            $test_cli->(
+            },
+            {
                 tags          => [qw/subcommand/],
                 name          => 'help on a subcommand',
                 gen_args      => {
@@ -275,24 +292,104 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                 exit_code     => 0,
                 stdout_like   => qr/Do nothing.+^Usage/ms,
                 stdout_unlike => qr/^Subcommands.+\bsc1\b/ms,
-            );
-        }; # help action
+            },
+        ],
+    ); # help action
 
-        subtest 'version action' => sub {
-            ok 1, "dummy"; # just to avoid no tests being run if all excluded by tags
-            require Perinci::Examples::Tiny;
-            $test_cli->(
+    require Perinci::Examples::Tiny;
+    _run_test_group(
+        %suite_args,
+        tempdir => $tempdir,
+        group_name => 'version action',
+        tests => [
+            {
                 gen_args    => {url => '/Perinci/Examples/Tiny/noop'},
                 inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
                 argv        => [qw/--version/],
                 exit_code   => 0,
                 stdout_like => qr/\Q$Perinci::Examples::Tiny::VERSION\E/,
-            );
-        }; # version action
+            },
+        ],
+    ); # version action
 
-        subtest 'run action' => sub {
-            ok 1, "dummy"; # just to avoid no tests being run if all excluded by tags
-            $test_cli->(
+    _run_test_group(
+        %suite_args,
+        tempdir => $tempdir,
+        group_name => 'subcommands action',
+        tests => [
+
+            # XXX test that if specified, subcommand spec's summary is used
+            # instead of subcommand url's Riap summary.
+
+            {
+                tags        => ['subcommand'],
+                gen_args    => {
+                    url => '/Perinci/Examples/Tiny/',
+                    subcommands => [
+                        'noop:/Perinci/Examples/Tiny/noop',
+                        'odd_even:/Perinci/Examples/Tiny/odd_even',
+                    ],
+                },
+                inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
+                argv        => [qw/--subcommands/],
+                exit_code   => 0,
+                stdout_like => qr/noop.+odd_even/ms,
+            },
+            {
+                tags        => ['subcommand'],
+                name        => 'unknown subcommand = error',
+                gen_args    => {
+                    url => '/Perinci/Examples/Tiny/',
+                    subcommands => [
+                        'noop:/Perinci/Examples/Tiny/noop',
+                        'odd_even:/Perinci/Examples/Tiny/odd_even',
+                    ],
+                },
+                inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
+                argv        => [qw/foo/],
+                exit_code   => 200,
+            },
+            {
+                tags        => ['subcommand'],
+                name        => 'default_subcommand',
+                gen_args    => {
+                    url => '/Perinci/Examples/Tiny/',
+                    subcommands => [
+                        'noop:/Perinci/Examples/Tiny/noop',
+                        'odd_even:/Perinci/Examples/Tiny/odd_even',
+                    ],
+                    default_subcommand=>'noop',
+                },
+                inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
+                argv        => [qw//],
+                exit_code   => 0,
+                stdout_like => qr/^$/, # no-op
+            },
+            {
+                tags        => ['subcommand'],
+                name        => 'default_subcommand 2',
+                gen_args    => {
+                    url => '/Perinci/Examples/Tiny/',
+                    subcommands => [
+                        'noop:/Perinci/Examples/Tiny/noop',
+                        'odd_even:/Perinci/Examples/Tiny/odd_even',
+                    ],
+                    default_subcommand=>'odd_even',
+                },
+                inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
+                argv        => [qw//],
+                exit_code   => 100, # missing required argument: number
+            },
+
+        ],
+    ); # subcommands action
+
+    _run_test_group(
+        %suite_args,
+        tempdir => $tempdir,
+        group_name => 'run action',
+        tests => [
+            {
                 tags           => ['embedded-meta'],
                 name           => 'embedded function+meta works',
                 gen_args       => {
@@ -302,35 +399,39 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                 argv           => [qw/12/],
                 exit_code      => 0,
                 stdout_like    => qr/^144$/,
-            );
-            $test_cli->(
+            },
+            {
                 name           => 'extra args not allowed',
                 gen_args       => {url => '/Perinci/Examples/Tiny/noop'},
                 inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
                 argv           => [qw/1/],
                 exit_code      => 200,
-            );
-            $test_cli->(
+            },
+            {
                 name           => 'arg that contains dot can be handled',
                 gen_args       => {url => '/Perinci/Examples/Tiny/Args/has_dot_args'},
                 inline_gen_args => {load_module=>['Perinci::Examples::Tiny::Args']},
                 argv           => [qw/3 7/],
                 exit_code      => 0,
                 stdout_like    => qr/^21$/,
-            );
-        }; # run action
+            },
+        ],
+    ); # run action
 
-        subtest 'completion' => sub {
-            ok 1, "dummy"; # just to avoid no tests being run if all excluded by tags
-            $test_cli_completion->(
+    _run_test_group(
+        %suite_args,
+        tempdir => $tempdir,
+        group_name => 'completion',
+        completion_tests => [
+            {
                 name           => 'self-completion works',
                 gen_args       => {url => '/Perinci/Examples/Tiny/odd_even'},
                 inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
                 argv           => [],
                 comp_line0     => 'cmd --nu^',
                 answer         => ['--number'],
-            );
-            $test_cli_completion->(
+            },
+            {
                 tags           => ['subcommand'],
                 name           => 'completion of subcommand name',
                 gen_args    => {
@@ -344,8 +445,8 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                 argv           => [],
                 comp_line0     => 'cmd sc^',
                 answer         => ['sc1', 'sc2'],
-            );
-            $test_cli_completion->(
+            },
+            {
                 tags           => ['subcommand'],
                 name           => 'completion of subcommand option',
                 gen_args    => {
@@ -359,10 +460,9 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                 argv           => [],
                 comp_line0     => 'cmd sc2 --nu^',
                 answer         => ['--number'],
-            );
-        }; # completion
-
-    };
+            },
+        ],
+    ); # completion
 
     if (!Test::More->builder->is_passing) {
         diag "there are failing tests, not deleting tempdir $tempdir";
