@@ -387,7 +387,7 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
     _run_test_group(
         %suite_args,
         tempdir => $tempdir,
-        group_name => 'run action',
+        group_name => 'call action',
         tests => [
             {
                 tags           => ['embedded-meta'],
@@ -416,7 +416,7 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                 stdout_like    => qr/^21$/,
             },
         ],
-    ); # run action
+    ); # call action
 
     _run_test_group(
         %suite_args,
