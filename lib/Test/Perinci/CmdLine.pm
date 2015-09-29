@@ -443,6 +443,14 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         exit_code      => 200,
                     },
                     {
+                        name           => 'common option: --format',
+                        gen_args       => {url => '/Perinci/Examples/Tiny/Args/as_is'},
+                        inline_gen_args => {load_module=>['Perinci::Examples::Tiny::Args']},
+                        argv           => [qw/--arg abc --format json/],
+                        exit_code      => 0,
+                        stdout_like    => qr/^\[\s*200,\s*"OK",\s*"abc",\s*\{\}\s*\]/s,
+                    },
+                    {
                         name           => 'common option: --json',
                         gen_args       => {url => '/Perinci/Examples/Tiny/Args/as_is'},
                         inline_gen_args => {load_module=>['Perinci::Examples::Tiny::Args']},
@@ -450,15 +458,15 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         exit_code      => 0,
                         stdout_like    => qr/^\[\s*200,\s*"OK",\s*"abc",\s*\{\}\s*\]/s,
                     },
-                    # pericmd-inline currently doesn't support/enable per-arg json?
-                    #{
-                    #    name           => 'common option: --json (2)',
-                    #    gen_args       => {url => '/Perinci/Examples/Tiny/Args/as_is'},
-                    #    inline_gen_args => {load_module=>['Perinci::Examples::Tiny::Args']},
-                    #    argv           => [qw/--arg-json ["a","b"] --json/],
-                    #    exit_code      => 0,
-                    #    stdout_like    => qr/^\[\s*200,\s*"OK",\s*\[\s*"a",\s*"b"\s*\],\s*\{\}\s*\]/s,
-                    #},
+
+                    {
+                        name           => 'json argument',
+                        gen_args       => {url => '/Perinci/Examples/Tiny/Args/as_is'},
+                        inline_gen_args => {load_module=>['Perinci::Examples::Tiny::Args']},
+                        argv           => [qw/--arg-json ["a","b"] --json/],
+                        exit_code      => 0,
+                        stdout_like    => qr/^\[\s*200,\s*"OK",\s*\[\s*"a",\s*"b"\s*\],\s*\{\}\s*\]/s,
+                    },
                 ],
             }, # call action
 
