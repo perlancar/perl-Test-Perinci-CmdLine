@@ -1,5 +1,15 @@
 Revision history for Test-Perinci-CmdLine
 
+1.25    2015-09-29 (PERLANCAR)
+
+	- Add tests: some other common options, cmdline_src, streaming, tx,
+	  result metadata, JSON-encoded argument.
+
+	- Refactor into run_test_groups().
+
+        - Export pericmd_ok() by default.
+
+
 1.24    2015-09-28 (PERLANCAR)
 
         - Use App::GenPericmdScript to reduce code duplication.
