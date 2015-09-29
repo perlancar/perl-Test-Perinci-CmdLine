@@ -1,5 +1,12 @@
 Revision history for Test-Perinci-CmdLine
 
+1.26    2015-09-29 (PERLANCAR)
+
+	- No functional changes.
+
+	- Tag dry-run tests.
+
+
 1.25    2015-09-29 (PERLANCAR)
 
 	- Add tests: some other common options, cmdline_src, streaming, tx,
