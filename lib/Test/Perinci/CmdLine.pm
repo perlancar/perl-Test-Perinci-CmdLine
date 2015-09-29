@@ -14,7 +14,7 @@ use Data::Dumper;
 use File::Path qw(remove_tree);
 use File::Slurper qw(read_text write_text);
 use File::Temp qw(tempdir tempfile);
-use IPC::System::Options qw(system);
+use IPC::System::Options qw(run);
 
 use Test::More 0.98;
 
@@ -62,6 +62,9 @@ If not specified, will create temporary directory with `tempdir()`.
 
 _
         },
+        cleanup_tempdir => {
+            schema => 'bool',
+        },
         groups => {
             schema => ['array*'],
             req => 1,
@@ -73,26 +76,14 @@ sub run_test_groups {
 
     my $class   = $args{class};
 
-    my $should_cleanup_tempdir = 0;
+    my $cleanup_tempdir = $args{cleanup_tempdir};
     my $tempdir = $args{tempdir} // do {
-        $should_cleanup_tempdir++;
+        $cleanup_tempdir //= 1;
         tempdir();
     };
 
-    my $include_tags = $args{include_tags} // do {
-        if (defined $ENV{TEST_PERICMD_INCLUDE_TAGS}) {
-            [split /,/, $ENV{TEST_PERICMD_INCLUDE_TAGS}];
-        } else {
-            undef;
-        }
-    };
-    my $exclude_tags = $args{exclude_tags} // do {
-        if (defined $ENV{TEST_PERICMD_EXCLUDE_TAGS}) {
-            [split /,/, $ENV{TEST_PERICMD_EXCLUDE_TAGS}];
-        } else {
-            undef;
-        }
-    };
+    my $include_tags = $args{include_tags};
+    my $exclude_tags = $args{exclude_tags};
 
     # create a pericmd script, run it, test the result
     my $test_cli = sub {
@@ -104,6 +95,7 @@ sub run_test_groups {
 
         my $name = $test_args{name} // join(" ", @{$test_args{argv} // []});
 
+        my ($exit_code, $stdout, $stderr);
         subtest $name => sub {
             my $tags = $test_args{tags} // [];
 
@@ -163,13 +155,14 @@ sub run_test_groups {
             die "Can't generate CLI script at $filename: ".
                 "$gen_res->[0] - $gen_res->[1]" unless $gen_res->[0] == 200;
             note "Generated CLI script at $filename";
+            note "gen_pericmd_script args: ", explain \%gen_args;
+            note "argv: ", explain $test_args{argv};
 
-            my $stdout;
-            my $stderr;
             my $res;
-            system(
+            run(
                 {shell=>0, die=>0, log=>1,
                  ((env=>$test_args{env}) x !!$test_args{env}),
+                 ((stdin=>$test_args{stdin}) x !!defined($test_args{stdin})),
                  capture_stdout=>\$stdout, capture_stderr=>\$stderr, lang=>'C'},
                 $^X,
                 # pericmd-inline script must work with only core modules
@@ -180,32 +173,57 @@ sub run_test_groups {
                 $filename,
                 @{ $test_args{argv} // []},
             );
+            $stdout //= "";
             note "Script's stdout: <$stdout>";
+            $stderr //= "";
             note "Script's stderr: <$stderr>";
-            my $exit_code = $? >> 8;
+            $exit_code = $? >> 8;
 
-            if (defined $test_args{exit_code}) {
-                is($exit_code, $test_args{exit_code}, "exit_code") or do {
-                    diag "Script's stdout: <$stdout>";
-                    diag "Script's stderr: <$stderr>";
-                };
-            }
+            is($exit_code, ($test_args{exit_code}//0), "exit_code") or do {
+                diag "Script's stdout: <$stdout>";
+                diag "Script's stderr: <$stderr>";
+            };
             if ($test_args{stdout_like}) {
-                like($stdout, $test_args{stdout_like}, "stdout_like");
+                if (ref($test_args{stdout_like}) eq 'ARRAY') {
+                    for my $re (@{ $test_args{stdout_like} }) {
+                        like($stdout, $re, "stdout_like");
+                    }
+                } else {
+                    like($stdout, $test_args{stdout_like}, "stdout_like");
+                }
             }
             if ($test_args{stdout_unlike}) {
-                unlike($stdout, $test_args{stdout_unlike}, "stdout_unlike");
+                if (ref($test_args{stdout_unlike}) eq 'ARRAY') {
+                    for my $re (@{ $test_args{stdout_unlike} }) {
+                        unlike($stdout, $re, "stdout_unlike");
+                    }
+                } else {
+                    unlike($stdout, $test_args{stdout_unlike}, "stdout_unlike");
+                }
             }
             if ($test_args{stderr_like}) {
-                like($stderr, $test_args{stderr_like}, "stderr_like");
+                if (ref($test_args{stderr_like}) eq 'ARRAY') {
+                    for my $re (@{ $test_args{stderr_like} }) {
+                        like($stderr, $re, "stderr_like");
+                    }
+                } else {
+                    like($stderr, $test_args{stderr_like}, "stderr_like");
+                }
             }
             if ($test_args{stderr_unlike}) {
-                unlike($stderr, $test_args{stderr_unlike}, "stderr_unlike");
+                if (ref($test_args{stderr_unlike}) eq 'ARRAY') {
+                    for my $re (@{ $test_args{stderr_unlike} }) {
+                        unlike($stderr, $re, "stderr_unlike");
+                    }
+                } else {
+                    unlike($stderr, $test_args{stderr_unlike}, "stderr_unlike");
+                }
             }
             if ($test_args{posttest}) {
                 $test_args{posttest}->($exit_code, $stdout, $stderr);
             }
         }; # subtest
+        ($exit_code, $stdout, $stderr);
     }; # test_cli
 
     my $test_cli_completion = sub {
@@ -245,17 +263,35 @@ sub run_test_groups {
 
     for my $group (@{ $args{groups} }) {
         subtest $group->{name} => sub {
+            if ($group->{before_all_tests}) {
+                $group->{before_all_tests}->($group);
+            }
             ok 1, "dummy"; # just to avoid no tests being run if all excluded by tags
             for my $test (@{ $group->{tests} // [] }) {
-                $test_cli->(%$test);
+                if ($group->{before_each_test}) {
+                    $group->{before_each_test}->($test);
+                }
+                my ($exit_code, $stdout, $stderr) = $test_cli->(%$test);
+                if ($group->{after_each_test}) {
+                    $group->{after_each_test}->($test, $exit_code, $stdout, $stderr);
+                }
             }
             for my $test (@{ $group->{completion_tests} // [] }) {
-                $test_cli_completion->(%$test);
+                if ($group->{before_each_test}) {
+                    $group->{before_each_test}->($test);
+                }
+                my ($exit_code, $stdout, $stderr) = $test_cli_completion->(%$test);
+                if ($group->{after_each_test}) {
+                    $group->{after_each_test}->($test, $exit_code, $stdout, $stderr);
+                }
+            }
+            if ($group->{after_all_tests}) {
+                $group->{after_all_tests}->($group);
             }
         } # group subtest
     } # for group
 
-    if ($should_cleanup_tempdir) {
+    if ($cleanup_tempdir) {
         if (!Test::More->builder->is_passing) {
             diag "there are failing tests, not deleting tempdir $tempdir";
         } elsif ($ENV{DEBUG}) {
@@ -277,16 +313,38 @@ $SPEC{pericmd_ok} = {
 sub pericmd_ok {
     my %suite_args = @_;
 
+    my $tempdir = tempdir();
+
+    require Perinci::Examples::Tiny;
+
+    my $include_tags = $suite_args{include_tags} // do {
+        if (defined $ENV{TEST_PERICMD_INCLUDE_TAGS}) {
+            [split /,/, $ENV{TEST_PERICMD_INCLUDE_TAGS}];
+        } else {
+            undef;
+        }
+    };
+    my $exclude_tags = $suite_args{exclude_tags} // do {
+        if (defined $ENV{TEST_PERICMD_EXCLUDE_TAGS}) {
+            [split /,/, $ENV{TEST_PERICMD_EXCLUDE_TAGS}];
+        } else {
+            undef;
+        }
+    };
+
+    # for embedded function+meta tests
     my $code_embed = q!
 our %SPEC;
 $SPEC{square} = {v=>1.1, args=>{num=>{schema=>'num*', req=>1, pos=>0}}};
 sub square { my %args=@_; [200, "OK", $args{num}**2] }
 !;
 
-    require Perinci::Examples::Tiny;
-
     run_test_groups(
         %suite_args,
+        include_tags => $include_tags,
+        exclude_tags => $exclude_tags,
+        tempdir => $tempdir,
+        cleanup_tempdir => 1,
         groups => [
             {
                 name => 'help action',
@@ -443,6 +501,13 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         exit_code      => 200,
                     },
                     {
+                        name           => 'missing required args -> error',
+                        gen_args       => {url => '/Perinci/Examples/Tiny/odd_even'},
+                        inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
+                        argv           => [qw//],
+                        exit_code      => 100,
+                    },
+                    {
                         name           => 'common option: --format',
                         gen_args       => {url => '/Perinci/Examples/Tiny/Args/as_is'},
                         inline_gen_args => {load_module=>['Perinci::Examples::Tiny::Args']},
@@ -458,17 +523,512 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         exit_code      => 0,
                         stdout_like    => qr/^\[\s*200,\s*"OK",\s*"abc",\s*\{\}\s*\]/s,
                     },
+                    {
+                        name           => 'common option: --naked-res',
+                        gen_args       => {url => '/Perinci/Examples/Tiny/Args/as_is'},
+                        inline_gen_args => {load_module=>['Perinci::Examples::Tiny::Args']},
+                        argv           => [qw/--arg abc --json --naked-res/],
+                        exit_code      => 0,
+                        stdout_like    => qr/^"abc"$/s,
+                    },
+                    {
+                        name           => 'common option: --no-naked-res',
+                        gen_args       => {url => '/Perinci/Examples/Tiny/Args/as_is'},
+                        inline_gen_args => {load_module=>['Perinci::Examples::Tiny::Args']},
+                        argv           => [qw/--arg abc --json --no-naked-res/],
+                        exit_code      => 0,
+                        stdout_like    => qr/^\[\s*200,\s*"OK",\s*"abc",\s*\{\}\s*\]/s,
+                    },
+                    {
+                        tags           => ['subcommand'],
+                        name           => 'common option: --cmd',
+                        gen_args       => {
+                            url => '/Perinci/Examples/Tiny/',
+                            subcommands => [
+                                'noop:/Perinci/Examples/Tiny/noop',
+                                'odd_even:/Perinci/Examples/Tiny/odd_even',
+                            ],
+                            default_subcommand=>'noop',
+                        },
+                        inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
+                        argv           => [qw/--cmd odd_even 5/],
+                        exit_code      => 0,
+                        stdout_like    => qr/^odd$/s,
+                    },
 
                     {
                         name           => 'json argument',
                         gen_args       => {url => '/Perinci/Examples/Tiny/Args/as_is'},
                         inline_gen_args => {load_module=>['Perinci::Examples::Tiny::Args']},
-                        argv           => [qw/--arg-json ["a","b"] --json/],
+                        argv           => ['--arg-json', '["a","b"]', '--json'],
                         exit_code      => 0,
                         stdout_like    => qr/^\[\s*200,\s*"OK",\s*\[\s*"a",\s*"b"\s*\],\s*\{\}\s*\]/s,
                     },
                 ],
             }, # call action
+
+            {
+                name => 'cmdline_src (error cases)',
+                tests => [
+                    {
+                        tags       => ['cmdline_src'],
+                        name       => 'unknown value',
+                        gen_args   => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_unknown"},
+                        inline_gen_args => {load_module=>["/Perinci/Examples/CmdLineSrc"]},
+                        argv       => [],
+                        exit_code  => 231,
+                    },
+                    {
+                        tags       => ['cmdline_src'],
+                        name       => 'arg type not str/array',
+                        gen_args   => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_invalid_arg_type"},
+                        inline_gen_args => {load_module=>["/Perinci/Examples/CmdLineSrc"]},
+                        argv       => [],
+                        exit_code  => 231,
+                    },
+                    {
+                        tags       => ['cmdline_src', 'cmdline_src:stdin'],
+                        name       => 'multiple stdin',
+                        gen_args   => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_multi_stdin"},
+                        inline_gen_args => {load_module=>["/Perinci/Examples/CmdLineSrc"]},
+                        argv       => [qw/a b/],
+                        exit_code  => 200,
+                    },
+                ],
+            }, # cmdline_src (error cases)
+
+            {
+                name => 'cmdline_src (file)',
+                before_all_tests => sub {
+                    write_text("$tempdir/infile1", "foo");
+                    write_text("$tempdir/infile2", "bar\nbaz");
+                },
+                tests => [
+                    {
+                        tags        => ['cmdline_src', 'cmdline_src:file'],
+                        name        => 'file 1',
+                        gen_args    => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_file"},
+                        inline_gen_args => {load_module=>['Perinci::Examples::CmdLineSrc']},
+                        argv        => ['--a1', "$tempdir/infile1"],
+                        stdout_like => qr/a1=foo/,
+                    },
+                    {
+                        tags        => ['cmdline_src', 'cmdline_src:file'],
+                        name        => 'file 1 (special hint arguments passed)',
+                        gen_args    => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_file"},
+                        inline_gen_args => {load_module=>['Perinci::Examples::CmdLineSrc']},
+                        argv        => ['--json', '--a1', "$tempdir/infile1"],
+                        stdout_like => [
+                            qr/"-cmdline_src_a1"\s*:\s*"file"/sx,
+                            qr/"-cmdline_srcfilenames_a1"\s*:\s*\[/sx,
+                        ],
+                    },
+                    {
+                        tags        => ['cmdline_src', 'cmdline_src:file'],
+                        name        => 'file 2',
+                        gen_args    => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_file"},
+                        inline_gen_args => {load_module=>['Perinci::Examples::CmdLineSrc']},
+                        argv        => ['--a1', "$tempdir/infile1", '--a2', "$tempdir/infile2"],
+                        stdout_like => qr/a1=foo\na2=\[bar\n,baz\]/,
+                    },
+                    {
+                        tags        => ['cmdline_src', 'cmdline_src:file'],
+                        name        => 'file 2 (special hint arguments passed)',
+                        gen_args    => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_file"},
+                        inline_gen_args => {load_module=>['Perinci::Examples::CmdLineSrc']},
+                        argv        => ['--json', '--a1', "$tempdir/infile1", '--a2', "$tempdir/infile2"],
+                        stdout_like => [
+                            qr/"-cmdline_src_a1"\s*:\s*"file"/sx,
+                            qr/"-cmdline_src_a2"\s*:\s*"file"/sx,
+                            qr/"-cmdline_srcfilenames_a1"\s*:\s*\[/sx,
+                            qr/"-cmdline_srcfilenames_a2"\s*:\s*\[/sx,
+                        ],
+                    },
+                    {
+                        tags        => ['cmdline_src', 'cmdline_src:file'],
+                        name        => 'file not found',
+                        gen_args    => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_file"},
+                        inline_gen_args => {load_module=>['Perinci::Examples::CmdLineSrc']},
+                        argv        => ['--a1', "$tempdir/infile1/x"],
+                        exit_code   => 200,
+                    },
+                    {
+                        tags        => ['cmdline_src', 'cmdline_src:file'],
+                        name        => 'file, missing required arg',
+                        gen_args    => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_file"},
+                        inline_gen_args => {load_module=>['Perinci::Examples::CmdLineSrc']},
+                        argv        => ['--a2', "$tempdir/infile2"],
+                        exit_code   => 100,
+                    },
+                ],
+            }, # cmdline_src (file)
+
+            {
+                name => 'cmdline_src (stdin)',
+                tests => [
+                    {
+                        tags        => ['cmdline_src', 'cmdline_src:stdin'],
+                        name        => 'stdin str',
+                        gen_args    => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_stdin_str"},
+                        inline_gen_args => {load_module=>['Perinci::Examples::CmdLineSrc']},
+                        argv        => [],
+                        stdin       => "bar\nbaz",
+                        stdout_like => qr/a1=bar\nbaz/,
+                    },
+                    {
+                        tags        => ['cmdline_src', 'cmdline_src:stdin'],
+                        name        => 'stdin str (special hint arguments passed)',
+                        gen_args    => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_stdin_str"},
+                        inline_gen_args => {load_module=>['Perinci::Examples::CmdLineSrc']},
+                        argv        => ['--json'],
+                        stdin       => "bar\nbaz",
+                        stdout_like => qr/
+                                             "-cmdline_src_a1"\s*:\s*"stdin"
+                                         /sx,
+                    },
+                    {
+                        tags        => ['cmdline_src', 'cmdline_src:stdin'],
+                        name        => 'stdin array',
+                        gen_args    => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_stdin_array"},
+                        inline_gen_args => {load_module=>['Perinci::Examples::CmdLineSrc']},
+                        argv        => [],
+                        stdin       => "bar\nbaz",
+                        stdout_like => qr/a1=\[bar\n,baz\]/,
+                    },
+                    {
+                        tags        => ['cmdline_src', 'cmdline_src:stdin'],
+                        name        => 'stdin + arg set to "-"',
+                        gen_args    => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_stdin_str"},
+                        inline_gen_args => {load_module=>['Perinci::Examples::CmdLineSrc']},
+                        argv        => [qw/--a1 -/],
+                        stdin       => "bar\nbaz",
+                        stdout_like => qr/a1=bar\nbaz/,
+                    },
+                    {
+                        tags        => ['cmdline_src', 'cmdline_src:stdin'],
+                        name        => 'stdin + arg set to non "-"',
+                        gen_args    => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_stdin_str"},
+                        inline_gen_args => {load_module=>['Perinci::Examples::CmdLineSrc']},
+                        argv        => [qw/--a1 x/],
+                        stdin       => "bar\nbaz",
+                        exit_code   => 100,
+                    },
+                ],
+            }, # cmdline_src (stdin)
+
+            {
+                name => 'cmdline_src (stdin_line)',
+                tests => [
+                    {
+                        tags        => ['cmdline_src', 'cmdline_src:stdin_line'],
+                        name        => 'stdin_line + from stdin',
+                        gen_args    => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_stdin_line"},
+                        inline_gen_args => {load_module=>['Perinci::Examples::CmdLineSrc']},
+                        argv        => ['--a2', 'bar'],
+                        stdin       => "foo\n",
+                        stdout_like => qr/a1=foo\na2=bar/,
+                    },
+                    {
+                        tags        => ['cmdline_src', 'cmdline_src:stdin_line'],
+                        name        => 'stdin_line + from stdin (special hint arguments passed)',
+                        gen_args    => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_stdin_line"},
+                        inline_gen_args => {load_module=>['Perinci::Examples::CmdLineSrc']},
+                        argv        => ['--json', '--a2', 'bar'],
+                        stdin       => "foo\n",
+                        stdout_like => qr/"-cmdline_src_a1"\s*:\s*"stdin_line"/sx,
+                    },
+                    {
+                        tags        => ['cmdline_src', 'cmdline_src:stdin_line'],
+                        name        => 'stdin_line + from cmdline',
+                        gen_args    => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_stdin_line"},
+                        inline_gen_args => {load_module=>['Perinci::Examples::CmdLineSrc']},
+                        argv        => ['--a2', 'bar', '--a1', 'qux'],
+                        stdout_like => qr/a1=qux\na2=bar/,
+                    },
+                    {
+                        tags        => ['cmdline_src', 'cmdline_src:stdin_line'],
+                        name        => 'multi stdin_line',
+                        gen_args    => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_multi_stdin_line"},
+                        inline_gen_args => {load_module=>['Perinci::Examples::CmdLineSrc']},
+                        argv        => ['--a3', 'baz'],
+                        stdin       => "foo\nbar\n",
+                        stdout_like => qr/a1=foo\na2=bar\na3=baz/,
+                    },
+                ],
+            }, # cmdline_src (stdin_line)
+
+            {
+                name => 'cmdline_src (stdin_or_file)',
+                before_all_tests => sub {
+                    write_text("$tempdir/infile1", "foo");
+                    write_text("$tempdir/infile2", "bar\nbaz");
+                },
+                tests => [
+                    {
+                        tags        => ['cmdline_src', 'cmdline_src:stdin_or_file'],
+                        name        => 'stdin_or_file file',
+                        gen_args    => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_stdin_or_file_str"},
+                        inline_gen_args => {load_module=>['Perinci::Examples::CmdLineSrc']},
+                        argv        => ["$tempdir/infile1"],
+                        stdout_like => qr/a1=foo$/,
+                    },
+                    {
+                        tags        => ['cmdline_src', 'cmdline_src:stdin_or_file'],
+                        name        => 'stdin_or_file file (extra argument)',
+                        gen_args    => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_stdin_or_file_str"},
+                        inline_gen_args => {load_module=>['Perinci::Examples::CmdLineSrc']},
+                        argv        => ["$tempdir/infile1", "$tempdir/infile1"],
+                        stdout_like => qr/a1=foo$/,
+                    },
+                    {
+                        tags        => ['cmdline_src', 'cmdline_src:stdin_or_file'],
+                        name        => 'stdin_or_file file (special hint arguments passed)',
+                        gen_args    => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_stdin_or_file_str"},
+                        inline_gen_args => {load_module=>['Perinci::Examples::CmdLineSrc']},
+                        argv        => ['--json', "$tempdir/infile1"],
+                        stdout_like => [
+                            qr/"-cmdline_src_a1"\s*:\s*"stdin_or_file"/sx,
+                            qr/"-cmdline_srcfilenames_a1"\s*:\s*\[/sx,
+                        ],
+                    },
+                    {
+                        tags        => ['cmdline_src', 'cmdline_src:stdin_or_file'],
+                        name        => 'stdin_or_files file not found',
+                        gen_args    => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_stdin_or_file_str"},
+                        inline_gen_args => {load_module=>['Perinci::Examples::CmdLineSrc']},
+                        argv        => ["$tempdir/infile1/x"],
+                        exit_code   => 200,
+                    },
+
+                    {
+                        tags        => ['cmdline_src', 'cmdline_src:stdin_or_file'],
+                        name        => 'stdin_or_file stdin str',
+                        gen_args    => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_stdin_or_file_str"},
+                        inline_gen_args => {load_module=>['Perinci::Examples::CmdLineSrc']},
+                        argv        => [],
+                        stdin       => "bar\nbaz",
+                        stdout_like => qr/a1=bar\nbaz$/,
+                        # TODO test special hint arguments passed
+                    },
+
+                    {
+                        tags        => ['cmdline_src', 'cmdline_src:stdin_or_file'],
+                        name        => 'stdin_or_file stdin str',
+                        gen_args    => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_stdin_or_file_array"},
+                        inline_gen_args => {load_module=>['Perinci::Examples::CmdLineSrc']},
+                        argv        => [],
+                        stdin       => "bar\nbaz",
+                        stdout_like => qr/a1=\[bar\n,baz\]/,
+                        # TODO test special hint arguments passed
+                    },
+                ],
+            }, # cmdline_src (stdin_or_file)
+
+            {
+                name => 'cmdline_src (stdin_or_files)',
+                before_all_tests => sub {
+                    write_text("$tempdir/infile1", "foo");
+                    write_text("$tempdir/infile2", "bar\nbaz");
+                },
+                tests => [
+                    {
+                        tags        => ['cmdline_src', 'cmdline_src:stdin_or_files'],
+                        name        => 'stdin_or_files file',
+                        gen_args    => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_stdin_or_files_array"},
+                        inline_gen_args => {load_module=>["/Perinci/Examples/CmdLineSrc"]},
+                        argv        => ["$tempdir/infile1", "$tempdir/infile2"],
+                        stdout_like => qr/a1=\[foo,bar\n,baz\]$/,
+                    },
+                    {
+                        tags        => ['cmdline_src', 'cmdline_src:stdin_or_files'],
+                        name        => 'stdin_or_files file (special hint arguments passed)',
+                        gen_args    => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_stdin_or_files_str"},
+                        inline_gen_args => {load_module=>["/Perinci/Examples/CmdLineSrc"]},
+                        argv        => ['--json', "$tempdir/infile1"],
+                        stdout_like => [
+                            qr/"-cmdline_src_a1"\s*:\s*"stdin_or_files"/sx,
+                            qr/"-cmdline_srcfilenames_a1"\s*:\s*\[/sx,
+                        ],
+                    },
+                    {
+                        tags        => ['cmdline_src', 'cmdline_src:stdin_or_files'],
+                        name        => 'stdin_or_files file not found',
+                        gen_args    => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_stdin_or_files_str"},
+                        inline_gen_args => {load_module=>["/Perinci/Examples/CmdLineSrc"]},
+                        argv        => ["$tempdir/infile1/x"],
+                        exit_code   => 200,
+                    },
+                    {
+                        tags        => ['cmdline_src', 'cmdline_src:stdin_or_files'],
+                        name        => 'stdin_or_files stdin str',
+                        gen_args    => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_stdin_or_files_str"},
+                        inline_gen_args => {load_module=>["/Perinci/Examples/CmdLineSrc"]},
+                        argv        => [],
+                        stdin       => "bar\nbaz",
+                        stdout_like => qr/a1=bar\nbaz$/,
+                        # TODO test special hint arguments passed
+                    },
+                    {
+                        tags        => ['cmdline_src', 'cmdline_src:stdin_or_files'],
+                        name        => 'stdin_or_files stdin str',
+                        gen_args    => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_stdin_or_files_array"},
+                        inline_gen_args => {load_module=>["/Perinci/Examples/CmdLineSrc"]},
+                        argv        => [],
+                        stdin       => "bar\nbaz",
+                        stdout_like => qr/a1=\[bar\n,baz\]/,
+                        # TODO test special hint arguments passed
+                    },
+                ],
+            }, # cmdline_src (stdin_or_files)
+
+            {
+                name => 'dry-run',
+                tests => [
+                    {
+                        name        => 'dry-run (via env, 0)',
+                        gen_args    => {url=>'/Perinci/Examples/test_dry_run'},
+                        #inline_gen_args => {...},
+                        env         => {DRY_RUN=>0},
+                        argv        => [],
+                        stdout_like => qr/wet/,
+                    },
+                    {
+                        name        => 'dry-run (via env, 1)',
+                        gen_args    => {url=>'/Perinci/Examples/test_dry_run'},
+                        #inline_gen_args => {...},
+                        env         => {DRY_RUN=>1},
+                        argv        => [qw//],
+                        stdout_like => qr/dry/,
+                    },
+                    {
+                        name        => 'dry-run (via cmdline opt)',
+                        gen_args    => {url=>'/Perinci/Examples/test_dry_run'},
+                        #inline_gen_args => {...},
+                        argv        => [qw/--dry-run/],
+                        stdout_like => qr/dry/,
+                    },
+                ],
+            }, # dry-run
+
+            {
+                name => 'tx',
+                tests => [
+                    {
+                        tags        => ['tx'],
+                        name        => 'dry_run (using tx) (w/o)',
+                        gen_args    => {url=>'/Perinci/Examples/Tx/check_state'},
+                        argv        => [],
+                        stdout_like => qr/^$/,
+                    },
+                    {
+                        tags        => ['tx'],
+                        name        => 'dry_run (using tx) (w/)',
+                        gen_args    => {url=>'/Perinci/Examples/Tx/check_state'},
+                        argv        => [qw/--dry-run/],
+                        stdout_like => qr/check_state/,
+                    },
+                ],
+            }, # tx
+
+            {
+                name => 'streaming',
+                before_all_tests => sub {
+                    write_text("$tempdir/infile1", "one\ntwo three\nfour\n");
+                    write_text("$tempdir/infile2", qq({}\n{"a":1}\n{"b":2,"c":3}\n{"d":4}\n));
+                    write_text("$tempdir/infile3", qq({}\n{\n));
+                    write_text("$tempdir/infile4", qq(1\n3\n5\n));
+                },
+                tests => [
+                    {
+                        tags        => ['streaming', 'streaming-input', 'fail1'],
+                        name        => "stream input (simple types)",
+                        gen_args    => {url => '/Perinci/Examples/Stream/wc'},
+                        argv        => ["$tempdir/infile1"],
+                        stdout_like => qr/
+                                             ^chars \s+ 19\n
+                                             ^lines \s+ 3\n
+                                             ^words \s+ 4\n
+                                         /mx,
+                    },
+                    {
+                        tags        => ['streaming', 'streaming-input', 'fail1'],
+                        name        => "stream input (json stream)",
+                        gen_args    => {url => '/Perinci/Examples/Stream/wc_keys'},
+                        argv        => ["$tempdir/infile2"],
+                        stdout_like => qr/^keys \s+ 4\n/mx,
+                    },
+                    {
+                        tags        => ['streaming', 'streaming-input'],
+                        name        => 'stream input (json stream, error in record)',
+                        gen_args    => {url => '/Perinci/Examples/Stream/wc_keys'},
+                        argv        => ["$tempdir/infile3"],
+                        exit_code => 200,
+                    },
+                    {
+                        tags        => ['streaming', 'streaming-output'],
+                        name        => "stream output (simple types)",
+                        gen_args    => {url => '/Perinci/Examples/Stream/square_input'},
+                        argv        => ["$tempdir/infile4"],
+                        stdout_like => qr/
+                                             ^1\n
+                                             ^9\n
+                                             ^25\n
+                                         /mx,
+                    },
+                    {
+                        tags        => ['streaming', 'streaming-output'],
+                        name        => "stream output (json stream)",
+                        gen_args    => {url => '/Perinci/Examples/Stream/hash_stream'},
+                        argv        => [qw/-n 3/],
+                        stdout_like => qr/
+                                             ^\Q{"num":1}\E\n
+                                             ^\Q{"num":2}\E\n
+                                             ^\Q{"num":3}\E\n
+                                         /mx,
+                    },
+                ],
+            }, # streaming
+
+            {
+                name => 'result metadata',
+                tests => [
+                    {
+                        name        => 'cmdline.exit_code',
+                        gen_args    => {url=>'/Perinci/Examples/CmdLineResMeta/exit_code'},
+                        inline_gen_args => {load_module=>['Perinci::Examples::CmdLineResMeta']},
+                        argv        => [qw//],
+                        exit_code   => 7,
+                    },
+                    {
+                        name        => 'cmdline.result',
+                        gen_args    => {url=>'/Perinci/Examples/CmdLineResMeta/result'},
+                        inline_gen_args => {load_module=>['Perinci::Examples::CmdLineResMeta']},
+                        argv        => [qw//],
+                        stdout_like => qr/false/,
+                    },
+                    {
+                        name        => 'cmdline.default_format',
+                        gen_args    => {url=>'/Perinci/Examples/CmdLineResMeta/default_format'},
+                        inline_gen_args => {load_module=>['Perinci::Examples::CmdLineResMeta']},
+                        argv        => [qw//],
+                        stdout_like => qr/null/,
+                    },
+                    {
+                        name        => 'cmdline.default_format (overriden by cmdline opt)',
+                        gen_args    => {url=>'/Perinci/Examples/CmdLineResMeta/default_format'},
+                        inline_gen_args => {load_module=>['Perinci::Examples::CmdLineResMeta']},
+                        argv        => [qw/--format text/],
+                        stdout_like => qr/\A\z/,
+                    },
+                    {
+                        name        => 'cmdline.skip_format',
+                        gen_args    => {url=>'/Perinci/Examples/CmdLineResMeta/skip_format'},
+                        inline_gen_args => {load_module=>['Perinci::Examples::CmdLineResMeta']},
+                        argv        => [qw//],
+                        stdout_like => qr/ARRAY\(0x/,
+                    },
+                ],
+            }, # result metadata
 
             {
                 name => 'completion',
@@ -513,6 +1073,264 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                     },
                 ],
             }, # completion
+
+            {
+                name => 'env',
+                tests => [
+                    {
+                        tags        => ['env'],
+                        name        => 'env read',
+                        env         => {
+                            SUM_NUMS_OPT => '1 2',
+                        },
+                        gen_args    => {
+                            read_env => 1,
+                            script_name => 'sum-nums',
+                            url => '/Perinci/Examples/sum',
+                        },
+                        #inline_gen_args => {...},
+                        argv        => [qw/3/],
+                        exit_code   => 0,
+                        stdout_like => qr/^6$/s,
+                    },
+                    {
+                        tags        => ['env'],
+                        name        => 'turned off via --no-env',
+                        env         => {
+                            SUM_NUMS_OPT => '1 2',
+                        },
+                        gen_args    => {
+                            read_env => 1,
+                            script_name => 'sum-nums',
+                            url => '/Perinci/Examples/sum',
+                        },
+                        #inline_gen_args => {...},
+                        argv        => [qw/--no-env 3/],
+                        exit_code   => 0,
+                        stdout_like => qr/^3$/s,
+                    },
+                    {
+                        tags        => ['env'],
+                        name        => 'attr:env_name',
+                        env         => {
+                            SUM_NUMS_OPT => '1 2',
+                            foo_opt => '7 8',
+                        },
+                        gen_args    => {
+                            read_env => 1,
+                            script_name => 'sum-nums',
+                            env_name => 'foo_opt',
+                            url => '/Perinci/Examples/sum',
+                        },
+                        #inline_gen_args => {...},
+                        argv        => [qw/3/],
+                        exit_code   => 0,
+                        stdout_like => qr/^18$/s,
+                    },
+                ],
+            }, # env
+
+            {
+                name => 'config file',
+                before_all_tests => sub {
+                    write_text("$tempdir/prog.conf", <<'_');
+a=101
+b=201
+[subcommand1]
+a=102
+c=201
+[subcommand2]
+a=103
+[profile=profile1]
+a=111
+d=201
+[subcommand1 profile=profile1]
+a=121
+_
+                    write_text("$tempdir/prog2.conf", <<'_');
+a=104
+_
+                    write_text("$tempdir/sum.conf", <<'_');
+array=0
+_
+                    write_text("$tempdir/prog3.conf", <<'_');
+format=json
+naked_res=1
+a.arg=101
+_
+                },
+                tests => [
+                    {
+                        tags        => ['config-file'],
+                        name        => 'attr:config_dirs',
+                        gen_args    => {
+                            url => '/Perinci/Examples/noop2',
+                            script_name => 'prog',
+                            read_config => 1,
+                            config_dirs => [$tempdir],
+                        },
+                        #inline_gen_args => {...},
+                        argv        => [],
+                        stdout_like => qr/^a=101\nb=201\nc=\nd=\ne=$/,
+                    },
+                    {
+                        tags        => ['config-file'],
+                        name        => 'attr:config_filename',
+                        gen_args    => {
+                            url => '/Perinci/Examples/noop2',
+                            script_name => 'prog',
+                            read_config => 1,
+                            config_dirs => [$tempdir],
+                            config_filename => 'prog2.conf',
+                        },
+                        #inline_gen_args => {...},
+                        argv        => [],
+                        stdout_like => qr/^a=104\nb=\nc=\nd=\ne=$/,
+                    },
+                    {
+                        tags        => ['config-file'],
+                        name        => 'common option: --no-config',
+                        gen_args => {
+                            url => '/Perinci/Examples/noop2',
+                            script_name => 'prog',
+                            read_config =>1,
+                            config_dirs => [$tempdir],
+                        },
+                        #inline_gen_args => {...},
+                        argv        => [qw/--no-config/],
+                        stdout_like => qr/^a=\nb=\nc=\nd=\ne=$/,
+                    },
+                    {
+                        tags        => ['config-file'],
+                        name        => 'common option: --config-path',
+                        gen_args    => {
+                            url => '/Perinci/Examples/noop2',
+                            script_name => 'prog',
+                            read_config =>1,
+                            #config_dirs => [$tempdir],
+                        },
+                        #inline_gen_args => {...},
+                        argv        => ['--config-path', "$tempdir/prog.conf"],
+                        stdout_like => qr/^a=101\nb=201\nc=\nd=\ne=$/,
+                    },
+                    {
+                        tags        => ['config-file'],
+                        name        => 'common option: --config-profile',
+                        gen_args    => {
+                            url => '/Perinci/Examples/noop2',
+                            script_name => 'prog',
+                            read_config =>1,
+                            config_dirs => [$tempdir],
+                        },
+                        #inline_gen_args => {...},
+                        argv        => [qw/--config-profile=profile1/],
+                        stdout_like => qr/a=111\nb=201\nc=\nd=201\ne=$/,
+                    },
+                    {
+                        tags        => ['config-file'],
+                        name        => 'unknown config profile -> error',
+                        gen_args    => {
+                            url => '/Perinci/Examples/noop2',
+                            script_name => 'prog',
+                            read_config =>1,
+                            config_dirs => [$tempdir],
+                        },
+                        #inline_gen_args => {...},
+                        argv        => [qw/--config-profile=foo/],
+                        exit_code   => 112,
+                    },
+                    {
+                        tags        => ['config-file'],
+                        name => 'unknown config profile but does not read config -> ok',
+                        gen_args    => {
+                            url => '/Perinci/Examples/noop2',
+                            script_name => 'foo',
+                            read_config =>1,
+                            config_dirs => [$tempdir],
+                        },
+                        #inline_gen_args => {...},
+                        argv        => [qw/--config-profile=bar/],
+                        stdout_like => qr/^a=\nb=\nc=\nd=\ne=$/,
+                    },
+                    # disabled for now, because App::GenPericmdScript doesn't
+                    # yet provide a way to pass the hook
+                    #{
+                    #    name => 'unknown config profile but set ignore_missing_config_profile_section -> ok',
+                    #    hook_before_read_config_file => sub {
+                    #        my ($self, $r) = @_;
+                    #        $r->{ignore_missing_config_profile_section} = 1;
+                    #    },
+                    #    gen_args => {...},
+                    #    #inline_gen_args => {...},
+                    #argv => [qw/--config-profile=bar/],
+                    #stdout_like => qr/^a=101\nb=201\nc=\nd=\ne=$/,
+                    #}
+                    {
+                        tags        => ['config-file', 'subcommand'],
+                        name        => 'subcommand',
+                        gen_args    => {
+                            url => '/Perinci/Examples/',
+                            subcommands => [
+                                'subcommand1:/Perinci/Examples/noop2',
+                            ],
+                            script_name => 'prog',
+                            read_config =>1,
+                            config_dirs => [$tempdir],
+                        },
+                        #inline_gen_args => {...},
+                        argv        => [qw/subcommand1/],
+                        stdout_like => qr/^a=102\nb=201\nc=201\nd=\ne=$/,
+                    },
+                    {
+                        tags        => ['config-file', 'subcommand'],
+                        name        => 'subcommand + --config-profile',
+                        gen_args => {
+                            url => '/Perinci/Examples/',
+                            subcommands => [
+                                'subcommand1:/Perinci/Examples/noop2',
+                            ],
+                            script_name => 'prog',
+                            read_config => 1,
+                            config_dirs => [$tempdir],
+                        },
+                        #inline_gen_args => {...},
+                        argv        => [qw/--config-profile=profile1 subcommand1/],
+                        stdout_like => qr/^a=121\nb=201\nc=201\nd=201\ne=$/,
+                    },
+                    {
+                        tags        => ['config-file'],
+                        name        => 'array-ify if argument is array',
+                        gen_args    => {
+                            url => '/Perinci/Examples/sum',
+                            script_name => 'sum',
+                            read_config => 1,
+                            config_dirs => [$tempdir],
+                        },
+                        #inline_gen_args => {...},
+                        argv        => [qw//],
+                        stdout_like => qr/^0$/,
+                    },
+
+                    # TODO array-ify common option
+
+                    {
+                        tags        => ['config-file'],
+                        name        => 'can also set common option',
+                        gen_args    => {
+                            url => '/Perinci/Examples/noop2',
+                            script_name => 'prog3',
+                            read_config => 1,
+                            config_dirs => [$tempdir],
+                        },
+                        #inline_gen_args => {...},
+                        argv        => [],
+                        stdout_like => qr/^"a=101\\nb=\\nc=\\nd=\\ne="/,
+                    },
+                ],
+            }, # config file
+
+            # TODO: test logging
+
         ] # groups
     );
 }
