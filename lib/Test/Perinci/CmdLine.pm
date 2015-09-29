@@ -58,7 +58,8 @@ $SPEC{run_test_groups} = {
             schema => 'str*',
             description => <<'_',
 
-If not specified, will create temporary directory with `tempdir()`.
+If not specified, will create temporary directory with `File::Temp`'s
+`tempdir()`.
 
 _
         },
