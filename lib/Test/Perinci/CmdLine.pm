@@ -1339,7 +1339,7 @@ _
 }
 
 1;
-# ABSTRACT:
+# ABSTRACT: Common test suite for Perinci::CmdLine::{Lite,Classic,Inline}
 
 =head1 SEE ALSO
 
