@@ -885,6 +885,7 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                 name => 'dry-run',
                 tests => [
                     {
+                        tags        => ['dry-run'],
                         name        => 'dry-run (via env, 0)',
                         gen_args    => {url=>'/Perinci/Examples/test_dry_run'},
                         #inline_gen_args => {...},
@@ -893,6 +894,7 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         stdout_like => qr/wet/,
                     },
                     {
+                        tags        => ['dry-run'],
                         name        => 'dry-run (via env, 1)',
                         gen_args    => {url=>'/Perinci/Examples/test_dry_run'},
                         #inline_gen_args => {...},
@@ -901,6 +903,7 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         stdout_like => qr/dry/,
                     },
                     {
+                        tags        => ['dry-run'],
                         name        => 'dry-run (via cmdline opt)',
                         gen_args    => {url=>'/Perinci/Examples/test_dry_run'},
                         #inline_gen_args => {...},
@@ -914,14 +917,14 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                 name => 'tx',
                 tests => [
                     {
-                        tags        => ['tx'],
+                        tags        => ['tx', 'dry-run'],
                         name        => 'dry_run (using tx) (w/o)',
                         gen_args    => {url=>'/Perinci/Examples/Tx/check_state'},
                         argv        => [],
                         stdout_like => qr/^$/,
                     },
                     {
-                        tags        => ['tx'],
+                        tags        => ['tx', 'dry-run'],
                         name        => 'dry_run (using tx) (w/)',
                         gen_args    => {url=>'/Perinci/Examples/Tx/check_state'},
                         argv        => [qw/--dry-run/],
