@@ -8,7 +8,7 @@ use strict;
 use warnings;
 use Devel::Confess;
 
-use App::GenPericmdScript qw(gen_pericmd_script);
+use Perinci::CmdLine::Generate qw(gen_pericmd_script);
 use Capture::Tiny qw(capture);
 use Data::Dumper;
 use File::Path qw(remove_tree);
@@ -1256,7 +1256,7 @@ _
                         argv        => [qw/--config-profile=bar/],
                         stdout_like => qr/^a=\nb=\nc=\nd=\ne=$/,
                     },
-                    # disabled for now, because App::GenPericmdScript doesn't
+                    # disabled for now, because Perinci::CmdLine::Generate doesn't
                     # yet provide a way to pass the hook
                     #{
                     #    name => 'unknown config profile but set ignore_missing_config_profile_section -> ok',
