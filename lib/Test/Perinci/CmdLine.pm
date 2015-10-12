@@ -8,7 +8,7 @@ use strict;
 use warnings;
 use Devel::Confess;
 
-use Perinci::CmdLine::Generate qw(gen_pericmd_script);
+use Perinci::CmdLine::Gen qw(gen_pericmd_script);
 use Capture::Tiny qw(capture);
 use Data::Dumper;
 use File::Path qw(remove_tree);
