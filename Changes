@@ -1,5 +1,12 @@
 Revision history for Test-Perinci-CmdLine
 
+1.27    2015-10-12 (PERLANCAR)
+
+	- Avoid circular dependency by splitting App::GenPericmdScript
+	  (CLI, which requires Perinci::CmdLine::Lite) into
+	  Perinci::CmdLine::Gen.
+
+
 1.26    2015-09-29 (PERLANCAR)
 
 	- No functional changes.
