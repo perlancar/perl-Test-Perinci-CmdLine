@@ -947,6 +947,7 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         tags        => ['streaming', 'streaming-input', 'fail1'],
                         name        => "stream input (simple types)",
                         gen_args    => {url => '/Perinci/Examples/Stream/wc'},
+                        inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
                         argv        => ["$tempdir/infile1"],
                         stdout_like => qr/
                                              ^chars \s+ 19\n
@@ -958,6 +959,7 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         tags        => ['streaming', 'streaming-input', 'fail1'],
                         name        => "stream input (json stream)",
                         gen_args    => {url => '/Perinci/Examples/Stream/wc_keys'},
+                        inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
                         argv        => ["$tempdir/infile2"],
                         stdout_like => qr/^keys \s+ 4\n/mx,
                     },
@@ -965,6 +967,7 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         tags        => ['streaming', 'streaming-input'],
                         name        => 'stream input (json stream, error in record)',
                         gen_args    => {url => '/Perinci/Examples/Stream/wc_keys'},
+                        inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
                         argv        => ["$tempdir/infile3"],
                         exit_code => 200,
                     },
@@ -972,6 +975,7 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         tags        => ['streaming', 'streaming-input', 'streaming-output'],
                         name        => "stream output (simple types)",
                         gen_args    => {url => '/Perinci/Examples/Stream/square_input'},
+                        inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
                         argv        => ["$tempdir/infile4"],
                         stdout_like => qr/
                                              ^1\n
@@ -983,13 +987,13 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         tags        => ['streaming', 'streaming-output'],
                         name        => "stream output (json stream)",
                         gen_args    => {url => '/Perinci/Examples/Stream/hash_stream'},
+                        inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
                         argv        => [qw/-n 3/],
                         stdout_like => qr/
                                              ^\Q{"num":1}\E\n
                                              ^\Q{"num":2}\E\n
                                              ^\Q{"num":3}\E\n
                                          /mx,
-                        inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
                     },
                 ],
             }, # streaming
