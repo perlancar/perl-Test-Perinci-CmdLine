@@ -1,5 +1,10 @@
 Revision history for Test-Perinci-CmdLine
 
+1.30    2015-11-28 (PERLANCAR)
+
+	- Add test: function that returns naked result.
+
+
 1.29    2015-11-27 (PERLANCAR)
 
 	- Adjustments for upcoming Perinci::CmdLine::Inline 0.30.
