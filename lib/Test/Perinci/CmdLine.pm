@@ -565,6 +565,15 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         exit_code      => 0,
                         stdout_like    => qr/^\[\s*"?200"?,\s*"OK",\s*\[\s*"a",\s*"b"\s*\],\s*\{.*\}\s*\]/s,
                     },
+
+                    {
+                        name           => 'can handle function which returns naked result',
+                        gen_args       => {url => '/Perinci/Examples/Tiny/hello_naked'},
+                        inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
+                        argv           => [],
+                        exit_code      => 0,
+                        stdout_like    => qr/Hello, world/,
+                    },
                 ],
             }, # call action
 
