@@ -1,5 +1,11 @@
 Revision history for Test-Perinci-CmdLine
 
+1.31    2015-12-02 (PERLANCAR)
+
+	- Add new syntax of specifying configuration for subcommand
+	  ([SUBCMDNAME] -> [subcommand=SUBCMDNAME]).
+
+
 1.30    2015-11-28 (PERLANCAR)
 
 	- Add test: function that returns naked result.
