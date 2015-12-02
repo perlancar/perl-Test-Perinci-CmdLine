@@ -1151,7 +1151,9 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
             {
                 name => 'config file',
                 before_all_tests => sub {
-                    write_text("$tempdir/prog.conf", <<'_');
+                    # old syntax, Perinci::CmdLine::Lite < 1.42. will not be
+                    # supported in the future
+                    write_text("$tempdir/prog-old.conf", <<'_');
 a=101
 b=201
 [subcommand1]
@@ -1163,6 +1165,20 @@ a=103
 a=111
 d=201
 [subcommand1 profile=profile1]
+a=121
+_
+                    write_text("$tempdir/prog.conf", <<'_');
+a=101
+b=201
+[subcommand=subcommand1]
+a=102
+c=201
+[subcommand=subcommand2]
+a=103
+[profile=profile1]
+a=111
+d=201
+[subcommand=subcommand1 profile=profile1]
 a=121
 _
                     write_text("$tempdir/prog2.conf", <<'_');
@@ -1299,6 +1315,25 @@ _
                         argv        => [qw/subcommand1/],
                         stdout_like => qr/^a=102\nb=201\nc=201\nd=\ne=$/,
                     },
+
+                    # this test will be removed in the future
+                    {
+                        tags        => ['config-file', 'subcommand'],
+                        name        => 'subcommand + --config-profile (old syntax)',
+                        gen_args => {
+                            url => '/Perinci/Examples/',
+                            subcommands => [
+                                'subcommand1:/Perinci/Examples/noop2',
+                            ],
+                            script_name => 'prog-old',
+                            read_config => 1,
+                            config_dirs => [$tempdir],
+                        },
+                        #inline_gen_args => {...},
+                        argv        => [qw/--config-profile=profile1 subcommand1/],
+                        stdout_like => qr/^a=121\nb=201\nc=201\nd=201\ne=$/,
+                    },
+
                     {
                         tags        => ['config-file', 'subcommand'],
                         name        => 'subcommand + --config-profile',
