@@ -1,5 +1,10 @@
 Revision history for Test-Perinci-CmdLine
 
+1.32    2016-01-20 (PERLANCAR)
+
+	- Fix/tweak streaming tests.
+
+
 1.31    2015-12-02 (PERLANCAR)
 
 	- Add new syntax of specifying configuration for subcommand
