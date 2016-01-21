@@ -958,6 +958,7 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                     write_text("$tempdir/infile-invalid-json", qq({}\n{\n));
                     write_text("$tempdir/infile-int", qq(1\n3\n5\n));
                     write_text("$tempdir/infile-invalid-int", qq(1\nx\n5\n));
+                    write_text("$tempdir/infile-invalid-words", qq(word1\nword2\nnot a word\n));
                 },
                 tests => [
                     {
@@ -987,6 +988,15 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
                         argv        => ["$tempdir/infile-invalid-json"],
                         exit_code => 200,
+                    },
+                    {
+                        tags        => ['streaming', 'streaming-input', 'validate-streaming-input'],
+                        name        => 'stream input (json stream, error in record #2)', # test that each record is chomp-ed
+                        gen_args    => {url => '/Perinci/Examples/Stream/num_words'},
+                        inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
+                        argv        => ["$tempdir/infile-invalid-words"],
+                        exit_code_like => qr/[1-9]/,
+                        stdout_like => qr/fails validation/,
                     },
                     {
                         tags        => ['streaming', 'streaming-input', 'streaming-result'],
