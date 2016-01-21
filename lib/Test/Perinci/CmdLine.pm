@@ -1021,6 +1021,22 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                                              ^\Q{"num":3}\E\n
                                          /mx,
                     },
+                    {
+                        tags        => ['streaming', 'streaming-result', 'validate-streaming-result'],
+                        name        => "stream result (simple types)",
+                        gen_args    => {url => '/Perinci/Examples/Stream/word_err'},
+                        inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
+                        argv        => ["-n", 9],
+                    },
+                    {
+                        tags        => ['streaming', 'streaming-result', 'validate-streaming-result'],
+                        name        => "stream result (simple types, error in output record)",
+                        gen_args    => {url => '/Perinci/Examples/Stream/word_err'},
+                        inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
+                        argv        => ["-n", 10],
+                        exit_code_like => qr/[1-9]/,
+                        stderr_like => qr/fails validation/,
+                    },
                 ],
             }, # streaming
 
