@@ -180,7 +180,14 @@ sub run_test_groups {
             note "Script's stderr: <$stderr>";
             $exit_code = $? >> 8;
 
-            is($exit_code, ($test_args{exit_code}//0), "exit_code") or do {
+            my $exit_code_as_expected = do {
+                if ($test_args{exit_code_like}) {
+                    like($exit_code, $test_args{exit_code_like}, "exit_code (like)");
+                } else {
+                    is($exit_code, ($test_args{exit_code}//0), "exit_code");
+                }
+            };
+            $exit_code_as_expected or do {
                 diag "Script's stdout: <$stdout>";
                 diag "Script's stderr: <$stderr>";
             };
