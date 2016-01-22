@@ -962,55 +962,108 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                     write_text("$tempdir/infile-invalid-words", qq(word1\nword2\nnot a word\n));
                 },
                 tests => [
+                    # streaming input
                     {
                         tags        => ['streaming', 'streaming-input'],
-                        name        => "stream input (simple types)",
+                        name        => "stream input, simple type, chomp on",
+                        gen_args    => {url => '/Perinci/Examples/Stream/count_lines'},
+                        inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
+                        argv        => ["$tempdir/infile-str"],
+                        stdout_like => qr/
+                                             3
+                                         /mx,
+                    },
+                    {
+                        tags        => ['streaming', 'streaming-input'],
+                        name        => "stream input, simple type, chomp off",
                         gen_args    => {url => '/Perinci/Examples/Stream/wc'},
                         inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
                         argv        => ["$tempdir/infile-str"],
                         stdout_like => qr/
-                                             ^chars \s+ 16\n
+                                             ^chars \s+ 19\n
                                              ^lines \s+ 3\n
                                              ^words \s+ 4\n
                                          /mx,
                     },
                     {
                         tags        => ['streaming', 'streaming-input'],
-                        name        => "stream input (json stream)",
+                        name        => "stream input, json stream",
                         gen_args    => {url => '/Perinci/Examples/Stream/wc_keys'},
                         inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
                         argv        => ["$tempdir/infile-hash-json"],
                         stdout_like => qr/^keys \s+ 4\n/mx,
                     },
+
                     {
                         tags        => ['streaming', 'streaming-input', 'validate-streaming-input'],
-                        name        => 'stream input (json stream, error in record)',
-                        gen_args    => {url => '/Perinci/Examples/Stream/wc_keys'},
-                        inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
-                        argv        => ["$tempdir/infile-invalid-json"],
-                        exit_code => 200,
-                    },
-                    {
-                        tags        => ['streaming', 'streaming-input', 'validate-streaming-input'],
-                        name        => 'stream input (simple types, words)', # test that each record is chomp-ed
-                        gen_args    => {url => '/Perinci/Examples/Stream/num_words'},
+                        name        => 'stream input, simple type, word validation', # also test that each record is chomp-ed
+                        gen_args    => {url => '/Perinci/Examples/Stream/count_words'},
                         inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
                         argv        => ["$tempdir/infile-words"],
                         stdout_like => qr/2/,
                     },
                     {
                         tags        => ['streaming', 'streaming-input', 'validate-streaming-input'],
-                        name        => 'stream input (simple types, words, error in record)',
-                        gen_args    => {url => '/Perinci/Examples/Stream/num_words'},
+                        name        => 'stream input, simple types, word validation, error',
+                        gen_args    => {url => '/Perinci/Examples/Stream/count_words'},
                         inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
                         argv        => ["$tempdir/infile-invalid-words"],
                         exit_code_like => qr/[1-9]/,
                         stdout_like => qr/fails validation/,
                     },
                     {
+                        tags        => ['streaming', 'streaming-input', 'validate-streaming-input'],
+                        name        => 'stream input, simple types, word validation, error',
+                        gen_args    => {url => '/Perinci/Examples/Stream/count_words'},
+                        inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
+                        argv        => ["$tempdir/infile-invalid-words"],
+                        exit_code_like => qr/[1-9]/,
+                        stdout_like => qr/fails validation/,
+                    },
+                    {
+                        tags        => ['streaming', 'streaming-input', 'validate-streaming-input'],
+                        name        => 'stream input, json stream, error',
+                        gen_args    => {url => '/Perinci/Examples/Stream/wc_keys'},
+                        inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
+                        argv        => ["$tempdir/infile-invalid-json"],
+                        exit_code => 200,
+                    },
+
+                    # streaming result
+                    {
+                        tags        => ['streaming', 'streaming-result', 'validate-streaming-result'],
+                        name        => "stream result, simple types, word validation",
+                        gen_args    => {url => '/Perinci/Examples/Stream/produce_words_err'},
+                        inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
+                        argv        => ["-n", 9],
+                    },
+                    {
+                        tags        => ['streaming', 'streaming-result', 'validate-streaming-result'],
+                        name        => "stream result, simple types, word validation, error",
+                        gen_args    => {url => '/Perinci/Examples/Stream/produce_words_err'},
+                        inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
+                        argv        => ["-n", 10],
+                        exit_code_like => qr/[1-9]/,
+                        stderr_like => qr/fails validation/,
+                    },
+                    {
+                        tags        => ['streaming', 'streaming-result'],
+                        name        => "stream result, json stream",
+                        gen_args    => {url => '/Perinci/Examples/Stream/produce_hashes'},
+                        inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
+                        argv        => [qw/-n 3/],
+                        stdout_like => qr/
+                                             ^\Q{"num":1}\E\n
+                                             ^\Q{"num":2}\E\n
+                                             ^\Q{"num":3}\E\n
+                                         /mx,
+                    },
+
+                    # streaming input+result
+                    {
                         tags        => ['streaming', 'streaming-input', 'streaming-result'],
-                        name        => "stream input+result (simple types)",
-                        gen_args    => {url => '/Perinci/Examples/Stream/square_input'},
+                        name        => "stream input+result, simple type, float validation",
+                        gen_args    => {url => '/Perinci/Examples/Stream/square_nums'},
                         inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
                         argv        => ["$tempdir/infile-int"],
                         stdout_like => qr/
@@ -1021,39 +1074,11 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                     },
                     {
                         tags        => ['streaming', 'streaming-input', 'streaming-result', 'validate-streaming-input'],
-                        name        => "stream input+result (simple types, error in input record)",
-                        gen_args    => {url => '/Perinci/Examples/Stream/square_input'},
+                        name        => "stream input+result, simple type, float validation, error",
+                        gen_args    => {url => '/Perinci/Examples/Stream/square_nums'},
                         inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
                         argv        => ["$tempdir/infile-invalid-int"],
                         exit_code_like => qr/[1-9]/, # sometimes it's 9, sometimes it's 25; looks like the input line is being used somehow as exit code?
-                        stderr_like => qr/fails validation/,
-                    },
-                    {
-                        tags        => ['streaming', 'streaming-result'],
-                        name        => "stream result (json stream)",
-                        gen_args    => {url => '/Perinci/Examples/Stream/hash_stream'},
-                        inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
-                        argv        => [qw/-n 3/],
-                        stdout_like => qr/
-                                             ^\Q{"num":1}\E\n
-                                             ^\Q{"num":2}\E\n
-                                             ^\Q{"num":3}\E\n
-                                         /mx,
-                    },
-                    {
-                        tags        => ['streaming', 'streaming-result', 'validate-streaming-result'],
-                        name        => "stream result (simple types)",
-                        gen_args    => {url => '/Perinci/Examples/Stream/word_err'},
-                        inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
-                        argv        => ["-n", 9],
-                    },
-                    {
-                        tags        => ['streaming', 'streaming-result', 'validate-streaming-result'],
-                        name        => "stream result (simple types, error in output record)",
-                        gen_args    => {url => '/Perinci/Examples/Stream/word_err'},
-                        inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
-                        argv        => ["-n", 10],
-                        exit_code_like => qr/[1-9]/,
                         stderr_like => qr/fails validation/,
                     },
                 ],
