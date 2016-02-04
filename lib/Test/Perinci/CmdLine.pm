@@ -10,7 +10,6 @@ use Devel::Confess;
 
 use Perinci::CmdLine::Gen qw(gen_pericmd_script);
 use Capture::Tiny qw(capture);
-use Data::Dumper;
 use File::Path qw(remove_tree);
 use File::Slurper qw(read_text write_text);
 use File::Temp qw(tempdir tempfile);
@@ -41,13 +40,6 @@ my %common_args = (
         schema => ['array*', of=>'str*'],
     },
 );
-
-sub _dump {
-    local $Data::Dumper::Deparse = 1;
-    local $Data::Dumper::Terse   = 1;
-    local $Data::Dumper::Indent  = 0;
-    Data::Dumper::Dumper($_[0]);
-}
 
 $SPEC{run_test_groups} = {
     v => 1.1,

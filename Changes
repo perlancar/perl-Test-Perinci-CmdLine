@@ -1,5 +1,10 @@
 Revision history for Test-Perinci-CmdLine
 
+1.38    2016-02-04 (PERLANCAR)
+
+	- Adjust to Perinci::Examples 0.69.
+
+
 1.37    2016-01-22 (PERLANCAR)
 
 	- Reorganize streaming tests and update to
