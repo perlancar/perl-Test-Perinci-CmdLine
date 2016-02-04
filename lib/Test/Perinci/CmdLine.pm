@@ -1067,9 +1067,9 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
                         argv        => ["$tempdir/infile-int"],
                         stdout_like => qr/
-                                             ^1\n
-                                             ^9\n
-                                             ^25\n
+                                             ^"?1"?\n
+                                             ^"?9"?\n
+                                             ^"?25"?\n
                                          /mx,
                     },
                     {
