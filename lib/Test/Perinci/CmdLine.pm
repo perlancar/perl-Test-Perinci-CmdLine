@@ -891,6 +891,31 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
             }, # cmdline_src (stdin_or_files)
 
             {
+                name => 'cmdline_src (stdin_or_args)',
+                before_all_tests => sub {
+                },
+                tests => [
+                    {
+                        tags        => ['cmdline_src', 'cmdline_src:stdin_or_args'],
+                        name        => 'from arg',
+                        gen_args    => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_stdin_or_args_array"},
+                        inline_gen_args => {load_module=>['Perinci::Examples::CmdLineSrc']},
+                        argv        => ['--a1', "x"],
+                        stdout_like => qr/a1=\[x\]/,
+                    },
+                    {
+                        tags        => ['cmdline_src', 'cmdline_src:stdin_or_args'],
+                        name        => 'from stdin',
+                        gen_args    => {url=>"/Perinci/Examples/CmdLineSrc/cmdline_src_stdin_or_args_array"},
+                        inline_gen_args => {load_module=>['Perinci::Examples::CmdLineSrc']},
+                        argv        => [],
+                        stdin       => "bar\nbaz",
+                        stdout_like => qr/a1=\[bar,baz\]/,
+                    },
+                ],
+            }, # cmdline_src (stdin_or_args)
+
+            {
                 name => 'dry-run',
                 tests => [
                     {
