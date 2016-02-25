@@ -1,5 +1,10 @@
 Revision history for Test-Perinci-CmdLine
 
+1.39    2016-02-26 (PERLANCAR)
+
+	- Add test for cmdline_src=stdin_or_args (Rinci 1.1.79).
+
+
 1.38    2016-02-04 (PERLANCAR)
 
 	- Adjust to Perinci::Examples 0.69.
