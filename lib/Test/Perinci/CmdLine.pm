@@ -1245,22 +1245,6 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
             {
                 name => 'config file',
                 before_all_tests => sub {
-                    # old syntax, Perinci::CmdLine::Lite < 1.42. will not be
-                    # supported in the future
-                    write_text("$tempdir/prog-old.conf", <<'_');
-a=101
-b=201
-[subcommand1]
-a=102
-c=201
-[subcommand2]
-a=103
-[profile=profile1]
-a=111
-d=201
-[subcommand1 profile=profile1]
-a=121
-_
                     write_text("$tempdir/prog.conf", <<'_');
 a=101
 b=201
@@ -1285,6 +1269,19 @@ _
 format=json
 naked_res=1
 a.arg=101
+_
+                    write_text("$tempdir/prog4.conf", <<'_');
+a=300
+b=301
+[prog]
+a=302
+b=303
+[prog2]
+a=304
+b=305
+[prog profile=profile1]
+a=306
+b=307
 _
                 },
                 tests => [
@@ -1314,6 +1311,34 @@ _
                         #inline_gen_args => {...},
                         argv        => [],
                         stdout_like => qr/^a=104\nb=\nc=\nd=\ne=$/,
+                    },
+                    {
+                        tags        => ['config-file'],
+                        name        => 'attr:config_filename (hash record)',
+                        gen_args    => {
+                            url => '/Perinci/Examples/noop2',
+                            script_name => 'prog',
+                            read_config => 1,
+                            config_dirs => [$tempdir],
+                            config_filename => [{filename=>'prog4.conf', section=>'prog'}, 'prog2.conf'],
+                        },
+                        #inline_gen_args => {...},
+                        argv        => [],
+                        stdout_like => qr/^a=104\nb=303\nc=\nd=\ne=$/,
+                    },
+                    {
+                        tags        => ['config-file'],
+                        name        => 'attr:config_filename (hash record) + --config-profile',
+                        gen_args    => {
+                            url => '/Perinci/Examples/noop2',
+                            script_name => 'prog',
+                            read_config => 1,
+                            config_dirs => [$tempdir],
+                            config_filename => [{filename=>'prog4.conf', section=>'prog'}, 'prog2.conf'],
+                        },
+                        #inline_gen_args => {...},
+                        argv        => [qw/--config-profile profile1/],
+                        stdout_like => qr/^a=104\nb=307\nc=\nd=\ne=$/,
                     },
                     {
                         tags        => ['config-file'],
@@ -1408,24 +1433,6 @@ _
                         #inline_gen_args => {...},
                         argv        => [qw/subcommand1/],
                         stdout_like => qr/^a=102\nb=201\nc=201\nd=\ne=$/,
-                    },
-
-                    # this test will be removed in the future
-                    {
-                        tags        => ['config-file', 'subcommand'],
-                        name        => 'subcommand + --config-profile (old syntax)',
-                        gen_args => {
-                            url => '/Perinci/Examples/',
-                            subcommands => [
-                                'subcommand1:/Perinci/Examples/noop2',
-                            ],
-                            script_name => 'prog-old',
-                            read_config => 1,
-                            config_dirs => [$tempdir],
-                        },
-                        #inline_gen_args => {...},
-                        argv        => [qw/--config-profile=profile1 subcommand1/],
-                        stdout_like => qr/^a=121\nb=201\nc=201\nd=201\ne=$/,
                     },
 
                     {
