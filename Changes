@@ -1,5 +1,11 @@
 Revision history for Test-Perinci-CmdLine
 
+1.40    2016-08-03 (PERLANCAR)
+
+	- Test config_filenames attribute which contains array of hashes to set
+          different section for different config filename.
+
+
 1.39    2016-02-26 (PERLANCAR)
 
 	- Add test for cmdline_src=stdin_or_args (Rinci 1.1.79).
