@@ -357,6 +357,20 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         stdout_like => qr/^Usage.+^([^\n]*)Options/ims,
                     },
                     {
+                        name        => '+ is not accepted as option starter',
+                        gen_args    => {url => '/Perinci/Examples/Tiny/noop'},
+                        inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
+                        argv        => [qw/+h/],
+                        exit_code   => 200,
+                    },
+                    {
+                        name        => '+ is not accepted as option starter (2)',
+                        gen_args    => {url => '/Perinci/Examples/Tiny/noop'},
+                        inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
+                        argv        => [qw/+help/],
+                        exit_code   => 200,
+                    },
+                    {
                         name        => 'extra args is okay',
                         gen_args    => {url => '/Perinci/Examples/Tiny/noop'},
                         inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
