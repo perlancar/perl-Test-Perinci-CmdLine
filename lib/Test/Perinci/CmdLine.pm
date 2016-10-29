@@ -23,6 +23,7 @@ our @EXPORT = (
     'pericmd_ok', # old, back-compat
     'pericmd_run_suite_ok',
     'pericmd_run_ok',
+    'pericmd_run_test_groups_ok',
 );
 
 our %SPEC;
