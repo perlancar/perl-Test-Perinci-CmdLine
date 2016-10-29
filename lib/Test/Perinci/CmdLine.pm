@@ -4,7 +4,7 @@ package Test::Perinci::CmdLine;
 # VERSION
 
 use 5.010001;
-use strict;
+use strict 'subs', 'vars';
 use warnings;
 use Devel::Confess;
 
@@ -19,7 +19,11 @@ use Test::More 0.98;
 
 require Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT = qw(pericmd_ok);
+our @EXPORT = (
+    'pericmd_ok', # old, back-compat
+    'pericmd_run_suite_ok',
+    'pericmd_run_ok',
+);
 
 our %SPEC;
 
@@ -33,6 +37,9 @@ my %common_args = (
         ]],
         req => 1,
     },
+);
+
+my %incl_excl_tags_args = (
     include_tags => {
         schema => ['array*', of=>'str*'],
     },
@@ -41,11 +48,160 @@ my %common_args = (
     },
 );
 
-$SPEC{run_test_groups} = {
+my %run_args = (
+    name => {
+        summary => 'Test name',
+        description => <<'_',
+
+If not specified, a nice default will be picked (e.g. from `argv`).
+
+_
+        schema => 'str*',
+    },
+    gen_args => {
+        summary => 'Arguments to be passed to `Perinci::CmdLine->new()`',
+        schema => 'hash*',
+        req => 1,
+    },
+    inline_gen_args => {
+        summary => 'Additional arguments to be passed to '.
+            '`Perinci::CmdLine::Inline->new()`',
+        description => <<'_',
+
+Keys from this argument will be added to `gen_args` and will only be used when
+`class` is `Perinci::CmdLine::Inline`.
+
+_
+        schema => 'hash*',
+    },
+    classic_gen_args => {
+        summary => 'Additional arguments to be passed to '.
+            '`Perinci::CmdLine::Classic->new()`',
+        description => <<'_',
+
+Keys from this argument will be added to `gen_args` and will only be used when
+`class` is `Perinci::CmdLine::Classic`.
+
+_
+        schema => 'hash*',
+    },
+    lite_gen_args => {
+        summary => 'Additional arguments to be passed to '.
+            '`Perinci::CmdLine::Lite->new()`',
+        description => <<'_',
+
+Keys from this argument will be added to `gen_args` and will only be used when
+`class` is `Perinci::CmdLine::Lite`.
+
+_
+        schema => 'hash*',
+    },
+    argv => {
+        summary => 'Command-line arguments that will be passed to '.
+            'generated CLI script',
+        schema => 'array*',
+        default => [],
+    },
+    stdin => {
+        summary => "Supply stdin content to generated CLI script",
+        schema => 'str*',
+    },
+    env => {
+        summary => "Set environment variables for generated CLI script",
+        schema => 'hash*',
+    },
+    comp_line0 => {
+        summary => "Set COMP_LINE environment for generated CLI script",
+        description => <<'_',
+
+Can contain `^` (caret) character which will be stripped from the final
+`COMP_LINE` and the position of the character will be used to determine
+`COMP_POINT`.
+
+_
+        schema => 'str*',
+    },
+    inline_allow => {
+        summary => "Modules to allow to be loaded when testing generated ".
+            "Perinci::CmdLine::Inline script",
+        description => <<'_',
+
+By default, when running the generated Perinci::CmdLine::Inline script, this
+perl option will be used (see <pm:lib::filter> for more details):
+
+    -Mlib::filter=allow_noncore,0
+
+This means the script will only be able to load core modules. But if the script
+is allowed to load additional modules, you can set this `inline_allow` parameter
+to, e.g. `["Foo::Bar","Baz"]` and the above perl option will become:
+
+    -Mlib::filter=allow_noncore,0,allow=Foo::Bar;Baz
+
+_
+        schema => ['array*', of=>'perl::modname*'],
+        default => 0,
+    },
+
+    exit_code => {
+        summary => "Expected script's exit code",
+        schema => 'int*',
+        default => 0,
+        tags => ['category:assert'],
+    },
+    exit_code_like => {
+        summary => "Expected script's exit code (as regex pattern)",
+        schema => 're*',
+        default => 0,
+        tags => ['category:assert'],
+    },
+    stdout_like => {
+        summary => "Test output of generated CLI script",
+        schema => 're*',
+        tags => ['category:assert'],
+    },
+    stdout_unlike => {
+        summary => "Test output of generated CLI script",
+        schema => 're*',
+        tags => ['category:assert'],
+    },
+    stderr_like => {
+        summary => "Test error output of generated CLI script",
+        schema => 're*',
+        tags => ['category:assert'],
+    },
+    stderr_unlike => {
+        summary => "Test error output of generated CLI script",
+        schema => 're*',
+        tags => ['category:assert'],
+    },
+    comp_answer => {
+        summary => "Test completion answer of generated CLI script",
+        schema => ['array*', of=>'str*'],
+        tags => ['category:assert'],
+    },
+    posttest => {
+        summary => "Additional tests",
+        description => <<'_',
+
+For example you can do `is()` or `ok()` or other <pm:Test::More> tests.
+
+_
+        schema => 'code*',
+        tags => ['category:assert'],
+    },
+
+    tags => {
+        schema => 'array*',
+        tags => ['hidden'],
+    },
+);
+
+$SPEC{pericmd_run_test_groups_ok} = {
     v => 1.1,
     summary => 'Run groups of Perinci::CmdLine tests',
     args => {
         %common_args,
+        %incl_excl_tags_args,
         tempdir => {
             schema => 'str*',
             description => <<'_',
@@ -64,7 +220,7 @@ _
         },
     },
 };
-sub run_test_groups {
+sub pericmd_run_test_groups_ok {
     my %args = @_;
 
     my $class   = $args{class};
@@ -121,6 +277,8 @@ sub run_test_groups {
             if ($test_args{gen_args}) {
                 $gen_args{$_} = $test_args{gen_args}{$_}
                     for keys %{$test_args{gen_args}};
+            } else {
+                die "Please specify 'gen_args'";
             }
             if ($class eq 'Perinci::CmdLine::Lite' &&
                     $test_args{lite_gen_args}) {
@@ -230,7 +388,7 @@ sub run_test_groups {
         my %test_args = @_;
 
         my $comp_line = delete($test_args{comp_line0});
-        my $answer = delete($test_args{answer});
+        my $answer = delete($test_args{comp_answer});
 
         my $comp_point;
         if (($comp_point = index($comp_line, '^')) >= 0) {
@@ -303,14 +461,48 @@ sub run_test_groups {
     }
 }
 
-$SPEC{pericmd_ok} = {
+$SPEC{pericmd_run_ok} = {
+    v => 1.1,
+    summary => 'Run a single test of a Perinci::CmdLine script',
+    args => {
+        %common_args,
+        %run_args,
+    },
+};
+sub pericmd_run_ok {
+    my %args = @_;
+
+    my %rtg_args;
+
+    $rtg_args{class} = delete $args{class};
+
+    {
+        my $test = {};
+        for my $k (keys %run_args) {
+            $test->{$k} = delete $args{$k} if exists $args{$k};
+        }
+        my $group = {
+            name => $test->{name} // 'single test group (pericmd_run_ok)',
+        };
+        if (defined $args{comp_answer}) {
+            $group->{completion_tests} = [$test];
+        } else {
+            $group->{tests} = [$test];
+        }
+        $rtg_args{groups} = [$group];
+    }
+
+    pericmd_run_test_groups_ok(%rtg_args);
+}
+
+$SPEC{pericmd_run_suite_ok} = {
     v => 1.1,
     summary => 'Common test suite for Perinci::CmdLine::{Lite,Classic,Inline}',
     args => {
         %common_args,
     },
 };
-sub pericmd_ok {
+sub pericmd_run_suite_ok {
     my %suite_args = @_;
 
     my $tempdir = tempdir();
@@ -339,7 +531,7 @@ $SPEC{square} = {v=>1.1, args=>{num=>{schema=>'num*', req=>1, pos=>0}}};
 sub square { my %args=@_; [200, "OK", $args{num}**2] }
 !;
 
-    run_test_groups(
+    pericmd_run_test_groups_ok(
         %suite_args,
         include_tags => $include_tags,
         exclude_tags => $exclude_tags,
@@ -1165,7 +1357,7 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
                         argv           => [],
                         comp_line0     => 'cmd --nu^',
-                        answer         => ['--number'],
+                        comp_answer    => ['--number'],
                     },
                     {
                         tags           => ['subcommand'],
@@ -1180,7 +1372,7 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
                         argv           => [],
                         comp_line0     => 'cmd sc^',
-                        answer         => ['sc1', 'sc2'],
+                        comp_answer    => ['sc1', 'sc2'],
                     },
                     {
                         tags           => ['subcommand'],
@@ -1195,7 +1387,7 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
                         argv           => [],
                         comp_line0     => 'cmd sc2 --nu^',
-                        answer         => ['--number'],
+                        comp_answer    => ['--number'],
                     },
                 ],
             }, # completion
@@ -1502,6 +1694,9 @@ _
         ] # groups
     );
 }
+
+# old, back-compat name
+*pericmd_ok = \&pericmd_run_suite_ok;
 
 1;
 # ABSTRACT: Common test suite for Perinci::CmdLine::{Lite,Classic,Inline}
