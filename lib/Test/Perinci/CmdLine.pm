@@ -61,13 +61,14 @@ _
         schema => 'str*',
     },
     gen_args => {
-        summary => 'Arguments to be passed to `Perinci::CmdLine->new()`',
+        summary => 'Arguments to be passed to '.
+            '`Perinci::CmdLine::Gen::gen_pericmd_script()`',
         schema => 'hash*',
         req => 1,
     },
     inline_gen_args => {
         summary => 'Additional arguments to be passed to '.
-            '`Perinci::CmdLine::Inline->new()`',
+            '`Perinci::CmdLine::Gen::gen_pericmd_script()`',
         description => <<'_',
 
 Keys from this argument will be added to `gen_args` and will only be used when
@@ -78,7 +79,7 @@ _
     },
     classic_gen_args => {
         summary => 'Additional arguments to be passed to '.
-            '`Perinci::CmdLine::Classic->new()`',
+            '`Perinci::CmdLine::Gen::gen_pericmd_script()`',
         description => <<'_',
 
 Keys from this argument will be added to `gen_args` and will only be used when
@@ -89,7 +90,7 @@ _
     },
     lite_gen_args => {
         summary => 'Additional arguments to be passed to '.
-            '`Perinci::CmdLine::Lite->new()`',
+            '`Perinci::CmdLine::Gen::gen_pericmd_script()`',
         description => <<'_',
 
 Keys from this argument will be added to `gen_args` and will only be used when
