@@ -501,6 +501,9 @@ $SPEC{pericmd_run_tests_ok} = {
     summary => 'Run a group of tests of a Perinci::CmdLine script',
     args => {
         %common_args,
+        name => {
+            schema => 'str*',
+        },
         tests => {
             schema => ['array*', of=>'hash*'],
             req => 1,
@@ -516,7 +519,7 @@ sub pericmd_run_tests_ok {
 
     {
         my $group = {
-            name => 'single group (pericmd_run_tests_ok)',
+            name => delete($args{name}) // 'single group (pericmd_run_tests_ok)',
         };
         if (grep {$_->{comp_answer}} @{ $args{tests} }) {
             $group->{completion_tests} = delete $args{tests};
