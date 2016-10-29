@@ -139,7 +139,6 @@ to, e.g. `["Foo::Bar","Baz"]` and the above perl option will become:
 
 _
         schema => ['array*', of=>'perl::modname*'],
-        default => 0,
     },
 
     exit_code => {
@@ -1700,6 +1699,8 @@ _
 
 1;
 # ABSTRACT: Common test suite for Perinci::CmdLine::{Lite,Classic,Inline}
+
+=for Pod::Coverage ^(pericmd_ok)$
 
 =head1 SEE ALSO
 
