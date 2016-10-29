@@ -24,6 +24,7 @@ our @EXPORT = (
     'pericmd_run_suite_ok',
     'pericmd_run_ok',
     'pericmd_run_test_groups_ok',
+    'pericmd_run_tests_ok',
 );
 
 our %SPEC;
@@ -488,6 +489,39 @@ sub pericmd_run_ok {
             $group->{completion_tests} = [$test];
         } else {
             $group->{tests} = [$test];
+        }
+        $rtg_args{groups} = [$group];
+    }
+
+    pericmd_run_test_groups_ok(%rtg_args);
+}
+
+$SPEC{pericmd_run_tests_ok} = {
+    v => 1.1,
+    summary => 'Run a group of tests of a Perinci::CmdLine script',
+    args => {
+        %common_args,
+        tests => {
+            schema => ['array*', of=>'hash*'],
+            req => 1,
+        },
+    },
+};
+sub pericmd_run_tests_ok {
+    my %args = @_;
+
+    my %rtg_args;
+
+    $rtg_args{class} = delete $args{class};
+
+    {
+        my $group = {
+            name => 'single group (pericmd_run_tests_ok)',
+        };
+        if (grep {$_->{comp_answer}} @{ $args{tests} }) {
+            $group->{completion_tests} = delete $args{tests};
+        } else {
+            $group->{tests} = delete $args{tests};
         }
         $rtg_args{groups} = [$group];
     }
