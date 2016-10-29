@@ -1,5 +1,10 @@
 Revision history for Test-Perinci-CmdLine
 
+1.43    2016-10-29 (PERLANCAR)
+
+	- Add pericmd_run_test_groups_ok().
+
+
 1.42    2016-10-29 (PERLANCAR)
 
 	- Add pericmd_run_ok() to run a single test.
