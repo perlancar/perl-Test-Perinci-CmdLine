@@ -65,6 +65,7 @@ _
             '`Perinci::CmdLine::Gen::gen_pericmd_script()`',
         schema => 'hash*',
         req => 1,
+        tags => ['category:input'],
     },
     inline_gen_args => {
         summary => 'Additional arguments to be passed to '.
@@ -76,6 +77,7 @@ Keys from this argument will be added to `gen_args` and will only be used when
 
 _
         schema => 'hash*',
+        tags => ['category:input', 'variant:inline'],
     },
     classic_gen_args => {
         summary => 'Additional arguments to be passed to '.
@@ -87,6 +89,7 @@ Keys from this argument will be added to `gen_args` and will only be used when
 
 _
         schema => 'hash*',
+        tags => ['category:input', 'variant:classic'],
     },
     lite_gen_args => {
         summary => 'Additional arguments to be passed to '.
@@ -98,20 +101,24 @@ Keys from this argument will be added to `gen_args` and will only be used when
 
 _
         schema => 'hash*',
+        tags => ['category:input', 'variant:lite'],
     },
     argv => {
         summary => 'Command-line arguments that will be passed to '.
             'generated CLI script',
         schema => 'array*',
         default => [],
+        tags => ['category:input'],
     },
     stdin => {
         summary => "Supply stdin content to generated CLI script",
         schema => 'str*',
+        tags => ['category:input'],
     },
     env => {
         summary => "Set environment variables for generated CLI script",
         schema => 'hash*',
+        tags => ['category:input'],
     },
     comp_line0 => {
         summary => "Set COMP_LINE environment for generated CLI script",
@@ -123,6 +130,7 @@ Can contain `^` (caret) character which will be stripped from the final
 
 _
         schema => 'str*',
+        tags => ['category:input'],
     },
     inline_allow => {
         summary => "Modules to allow to be loaded when testing generated ".
@@ -142,8 +150,15 @@ to, e.g. `["Foo::Bar","Baz"]` and the above perl option will become:
 
 _
         schema => ['array*', of=>'perl::modname*'],
+        tags => ['category:input', 'variant:inline'],
     },
 
+    gen_status => {
+        summary => 'Expected generate result status',
+        schema  => 'int*',
+        default => 200,
+        tags => ['category:assert'],
+    },
     exit_code => {
         summary => "Expected script's exit code",
         schema => 'int*',
@@ -305,6 +320,11 @@ sub pericmd_run_test_groups_ok {
             $gen_args{output_file} = $filename;
             $gen_args{overwrite} = 1;
             my $gen_res = gen_pericmd_script(%gen_args);
+            if (exists $test_args{gen_status}) {
+                is($gen_res->[0], $test_args{gen_status}, "gen status")
+                    or return;
+                return if $test_args{gen_status} != 200;
+            }
             die "Can't generate CLI script at $filename: ".
                 "$gen_res->[0] - $gen_res->[1]" unless $gen_res->[0] == 200;
             note "Generated CLI script at $filename";
