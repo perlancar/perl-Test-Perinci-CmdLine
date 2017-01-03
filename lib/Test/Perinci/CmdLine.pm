@@ -146,7 +146,7 @@ This means the script will only be able to load core modules. But if the script
 is allowed to load additional modules, you can set this `inline_allow` parameter
 to, e.g. `["Foo::Bar","Baz"]` and the above perl option will become:
 
-    -Mlib::filter=allow_noncore,0,allow=Foo::Bar;Baz
+    -Mlib::filter=allow_noncore,0,allow,Foo::Bar;Baz
 
 _
         schema => ['array*', of=>'perl::modname*'],
@@ -341,7 +341,7 @@ sub pericmd_run_test_groups_ok {
                 # pericmd-inline script must work with only core modules
                 ($class eq 'Perinci::CmdLine::Inline' ?
                      ("-Mlib::filter=allow_noncore,0".
-                      ($test_args{inline_allow} ? ",allow=".
+                      ($test_args{inline_allow} ? ",allow,".
                        join(";",@{$test_args{inline_allow}}) : "")) : ()),
                 $filename,
                 @{ $test_args{argv} // []},
