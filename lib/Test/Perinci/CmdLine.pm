@@ -148,8 +148,29 @@ to, e.g. `["Foo::Bar","Baz"]` and the above perl option will become:
 
     -Mlib::filter=allow_noncore,0,allow,Foo::Bar;Baz
 
+To skip using this option, set `inline_run_filter` to false.
+
 _
         schema => ['array*', of=>'perl::modname*'],
+        tags => ['category:input', 'variant:inline'],
+    },
+    inline_run_filter => {
+        summary => "Whether to use -Mfilter when running generated ".
+            "Perinci::CmdLine::Inline script",
+        schema => ['bool*'],
+        default => 1,
+        description => <<'_',
+
+By default, when running the generated Perinci::CmdLine::Inline script, this
+perl option will be used (see <pm:lib::filter> for more details):
+
+    -Mlib::filter=allow_noncore,0,...
+
+This is to test that the script does not require non-core modules. To skip using
+this option (e.g. when using `pack_deps` gen option set to false), set
+this option to false.
+
+_
         tags => ['category:input', 'variant:inline'],
     },
 
@@ -339,7 +360,7 @@ sub pericmd_run_test_groups_ok {
                  capture_stdout=>\$stdout, capture_stderr=>\$stderr, lang=>'C'},
                 $^X,
                 # pericmd-inline script must work with only core modules
-                ($class eq 'Perinci::CmdLine::Inline' ?
+                ($class eq 'Perinci::CmdLine::Inline' && ($test_args{inline_run_filter} // 1) ?
                      ("-Mlib::filter=allow_noncore,0".
                       ($test_args{inline_allow} ? ",allow,".
                        join(";",@{$test_args{inline_allow}}) : "")) : ()),
