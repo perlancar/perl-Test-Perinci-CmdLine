@@ -654,9 +654,9 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         name        => 'help for cli with subcommands',
                         gen_args    => {
                             url => '/Perinci/Examples/Tiny/',
-                            subcommands => [
-                                'sc1:/Perinci/Examples/Tiny/noop',
-                            ],
+                            subcommands => {
+                                sc1 => '/Perinci/Examples/Tiny/noop',
+                            },
                         },
                         inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
                         argv        => [qw/--help/],
@@ -668,9 +668,9 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         name          => 'help on a subcommand',
                         gen_args      => {
                             url => '/Perinci/Examples/Tiny/',
-                            subcommands => [
-                                'sc1:/Perinci/Examples/Tiny/noop',
-                            ],
+                            subcommands => {
+                                sc1 => '/Perinci/Examples/Tiny/noop',
+                            },
                         },
                         inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
                         argv          => [qw/sc1 --help/],
@@ -705,10 +705,10 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         tags        => ['subcommand'],
                         gen_args    => {
                             url => '/Perinci/Examples/Tiny/',
-                            subcommands => [
-                                'noop:/Perinci/Examples/Tiny/noop',
-                                'odd_even:/Perinci/Examples/Tiny/odd_even',
-                            ],
+                            subcommands => {
+                                'noop' => '/Perinci/Examples/Tiny/noop',
+                                'odd_even' => '/Perinci/Examples/Tiny/odd_even',
+                            },
                         },
                         inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
                         argv        => [qw/--subcommands/],
@@ -720,10 +720,10 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         name        => 'unknown subcommand = error',
                         gen_args    => {
                             url => '/Perinci/Examples/Tiny/',
-                            subcommands => [
-                                'noop:/Perinci/Examples/Tiny/noop',
-                                'odd_even:/Perinci/Examples/Tiny/odd_even',
-                            ],
+                            subcommands => {
+                                'noop' => '/Perinci/Examples/Tiny/noop',
+                                'odd_even' => '/Perinci/Examples/Tiny/odd_even',
+                            },
                         },
                         inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
                         argv        => [qw/foo/],
@@ -734,10 +734,10 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         name        => 'default_subcommand',
                         gen_args    => {
                             url => '/Perinci/Examples/Tiny/',
-                            subcommands => [
-                                'noop:/Perinci/Examples/Tiny/noop',
-                                'odd_even:/Perinci/Examples/Tiny/odd_even',
-                            ],
+                            subcommands => {
+                                'noop' => '/Perinci/Examples/Tiny/noop',
+                                'odd_even' => '/Perinci/Examples/Tiny/odd_even',
+                            },
                             default_subcommand=>'noop',
                         },
                         inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
@@ -750,10 +750,10 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         name        => 'default_subcommand 2',
                         gen_args    => {
                             url => '/Perinci/Examples/Tiny/',
-                            subcommands => [
-                                'noop:/Perinci/Examples/Tiny/noop',
-                                'odd_even:/Perinci/Examples/Tiny/odd_even',
-                            ],
+                            subcommands => {
+                                'noop' => '/Perinci/Examples/Tiny/noop',
+                                'odd_even' => '/Perinci/Examples/Tiny/odd_even',
+                            },
                             default_subcommand=>'odd_even',
                         },
                         inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
@@ -829,10 +829,10 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         name           => 'common option: --cmd',
                         gen_args       => {
                             url => '/Perinci/Examples/Tiny/',
-                            subcommands => [
-                                'noop:/Perinci/Examples/Tiny/noop',
-                                'odd_even:/Perinci/Examples/Tiny/odd_even',
-                            ],
+                            subcommands => {
+                                'noop' => '/Perinci/Examples/Tiny/noop',
+                                'odd_even' => '/Perinci/Examples/Tiny/odd_even',
+                            },
                             default_subcommand=>'noop',
                         },
                         inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
@@ -1443,10 +1443,10 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         name           => 'completion of subcommand name',
                         gen_args    => {
                             url => '/Perinci/Examples/Tiny/',
-                            subcommands => [
-                                'sc1:/Perinci/Examples/Tiny/noop',
-                                'sc2:/Perinci/Examples/Tiny/odd_even',
-                            ],
+                            subcommands => {
+                                'sc1' => '/Perinci/Examples/Tiny/noop',
+                                'sc2' => '/Perinci/Examples/Tiny/odd_even',
+                            },
                         },
                         inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
                         argv           => [],
@@ -1458,10 +1458,10 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         name           => 'completion of subcommand option',
                         gen_args    => {
                             url => '/Perinci/Examples/Tiny/',
-                            subcommands => [
-                                'sc1:/Perinci/Examples/Tiny/noop',
-                                'sc2:/Perinci/Examples/Tiny/odd_even',
-                            ],
+                            subcommands => {
+                                'sc1' => '/Perinci/Examples/Tiny/noop',
+                                'sc2' => '/Perinci/Examples/Tiny/odd_even',
+                            },
                         },
                         inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
                         argv           => [],
@@ -1708,9 +1708,9 @@ _
                         name        => 'subcommand',
                         gen_args    => {
                             url => '/Perinci/Examples/',
-                            subcommands => [
-                                'subcommand1:/Perinci/Examples/noop2',
-                            ],
+                            subcommands => {
+                                'subcommand1' => '/Perinci/Examples/noop2',
+                            },
                             script_name => 'prog',
                             read_config =>1,
                             config_dirs => [$tempdir],
@@ -1725,9 +1725,9 @@ _
                         name        => 'subcommand + --config-profile',
                         gen_args => {
                             url => '/Perinci/Examples/',
-                            subcommands => [
-                                'subcommand1:/Perinci/Examples/noop2',
-                            ],
+                            subcommands => {
+                                'subcommand1' => '/Perinci/Examples/noop2',
+                            },
                             script_name => 'prog',
                             read_config => 1,
                             config_dirs => [$tempdir],
