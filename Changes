@@ -1,5 +1,3 @@
-Revision history for Test-Perinci-CmdLine
-
 1.46    2017-01-04 (PERLANCAR)
 
 	- Adjust to Perinci::CmdLine::Gen 1.40 (subcommands now a hash, not
