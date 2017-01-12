@@ -1,3 +1,8 @@
+1.47    2017-01-12 (PERLANCAR)
+
+	- Adjust to Perinci::CmdLine::Inline 0.45.
+
+
 1.46    2017-01-04 (PERLANCAR)
 
 	- Adjust to Perinci::CmdLine::Gen 1.40 (subcommands now a hash, not
