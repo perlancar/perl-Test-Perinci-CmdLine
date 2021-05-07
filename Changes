@@ -1,3 +1,10 @@
+1.481   2021-05-07  Released-By: PERLANCAR; Urgency: low
+
+        - No functional changes.
+
+        - Switch to x.yyy versioning scheme more properly.
+
+
 1.480   2021-05-07  Released-By: PERLANCAR; Urgency: medium
 
 	- Adjust to Perinci::Examples 0.821 (renamed test_dry_run() to
