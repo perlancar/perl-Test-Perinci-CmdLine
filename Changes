@@ -1,3 +1,10 @@
+1.480   2021-05-07  Released-By: PERLANCAR; Urgency: medium
+
+	- Adjust to Perinci::Examples 0.821 (renamed test_dry_run() to
+	  dry_run()); Adjust to BorderStyle::ASCII::SingleLineInnerOnly
+	  (extra space in border).
+
+
 1.47    2017-01-12  Released-By: PERLANCAR
 
 	- Adjust to Perinci::CmdLine::Inline 0.45.
