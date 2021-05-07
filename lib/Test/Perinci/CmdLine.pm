@@ -1,6 +1,8 @@
 package Test::Perinci::CmdLine;
 
+# AUTHORITY
 # DATE
+# DIST
 # VERSION
 
 use 5.010001;
@@ -625,7 +627,7 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
                         argv        => [qw/--help/],
                         exit_code   => 0,
-                        stdout_like => qr/^Usage.+^([^\n]*)Options/ims,
+                        stdout_like => qr/^\s*Usage.+^([^\n]*)Options/ims,
                     },
                     {
                         name        => '+ is not accepted as option starter',
@@ -647,7 +649,7 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
                         argv        => [qw/--help 1 2 3/],
                         exit_code   => 0,
-                        stdout_like => qr/^Usage.+^([^\n]*)Options/ims,
+                        stdout_like => qr/^\s*Usage.+^([^\n]*)Options/ims,
                     },
                     {
                         tags        => [qw/subcommand/],
@@ -661,7 +663,7 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
                         argv        => [qw/--help/],
                         exit_code   => 0,
-                        stdout_like => qr/^Subcommands.+\bsc1\b/ms,
+                        stdout_like => qr/^\s*Subcommands.+\bsc1\b/ms,
                     },
                     {
                         tags          => [qw/subcommand/],
@@ -675,8 +677,8 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         inline_gen_args => {load_module=>['Perinci::Examples::Tiny']},
                         argv          => [qw/sc1 --help/],
                         exit_code     => 0,
-                        stdout_like   => qr/Do nothing.+^Usage/ms,
-                        stdout_unlike => qr/^Subcommands.+\bsc1\b/ms,
+                        stdout_like   => qr/Do nothing.+^\s*Usage/ms,
+                        stdout_unlike => qr/^\s*Subcommands.+\bsc1\b/ms,
                     },
                 ],
             }, # help action
@@ -1206,7 +1208,7 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                     {
                         tags        => ['dry-run'],
                         name        => 'dry-run (via env, 0)',
-                        gen_args    => {url=>'/Perinci/Examples/test_dry_run'},
+                        gen_args    => {url=>'/Perinci/Examples/dry_run'},
                         #inline_gen_args => {...},
                         env         => {DRY_RUN=>0},
                         argv        => [],
@@ -1215,7 +1217,7 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                     {
                         tags        => ['dry-run'],
                         name        => 'dry-run (via env, 1)',
-                        gen_args    => {url=>'/Perinci/Examples/test_dry_run'},
+                        gen_args    => {url=>'/Perinci/Examples/dry_run'},
                         #inline_gen_args => {...},
                         env         => {DRY_RUN=>1},
                         argv        => [qw//],
@@ -1224,7 +1226,7 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                     {
                         tags        => ['dry-run'],
                         name        => 'dry-run (via cmdline opt)',
-                        gen_args    => {url=>'/Perinci/Examples/test_dry_run'},
+                        gen_args    => {url=>'/Perinci/Examples/dry_run'},
                         #inline_gen_args => {...},
                         argv        => [qw/--dry-run/],
                         stdout_like => qr/dry/,
