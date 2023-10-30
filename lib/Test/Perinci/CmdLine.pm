@@ -1313,7 +1313,7 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
                         argv        => ["$tempdir/infile-invalid-words"],
                         exit_code_like => qr/[1-9]/,
-                        stdout_like => qr/fails validation/,
+                        stderr_like => qr/fails validation/,
                     },
                     {
                         tags        => ['streaming', 'streaming-input', 'validate-streaming-input'],
@@ -1322,7 +1322,7 @@ sub square { my %args=@_; [200, "OK", $args{num}**2] }
                         inline_gen_args => {load_module=>["Perinci::Examples::Stream"]},
                         argv        => ["$tempdir/infile-invalid-words"],
                         exit_code_like => qr/[1-9]/,
-                        stdout_like => qr/fails validation/,
+                        stderr_like => qr/fails validation/,
                     },
                     {
                         tags        => ['streaming', 'streaming-input', 'validate-streaming-input'],
