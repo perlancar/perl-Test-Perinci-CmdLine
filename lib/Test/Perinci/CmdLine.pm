@@ -304,7 +304,7 @@ sub pericmd_run_test_groups_ok {
             if ($exclude_tags) {
                 for my $tag (@$tags) {
                     if (grep { $_ eq $tag } @$exclude_tags) {
-                        plan skip_all => "Has one of the exclude_tag: $_";
+                        plan skip_all => "Has one of the exclude_tag: $tag";
                         return;
                     }
                 }
