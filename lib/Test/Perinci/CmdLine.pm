@@ -2,27 +2,25 @@
 
 package Test::Perinci::CmdLine;
 
-# AUTHORITY
-# DATE
-# DIST
-# VERSION
-
 use 5.010001;
 use strict 'subs', 'vars';
 use warnings;
-use Devel::Confess;
+use Test::More 0.98;
 
-use Perinci::CmdLine::Gen qw(gen_pericmd_script);
+use Devel::Confess;
+use Exporter qw(import);
 use Capture::Tiny qw(capture);
 use File::Path qw(remove_tree);
 use File::Slurper qw(read_text write_text);
 use File::Temp qw(tempdir tempfile);
 use IPC::System::Options qw(run);
+use Perinci::CmdLine::Gen qw(gen_pericmd_script);
 
-use Test::More 0.98;
+# AUTHORITY
+# DATE
+# DIST
+# VERSION
 
-require Exporter;
-our @ISA = qw(Exporter);
 our @EXPORT = (
     'pericmd_ok', # old, back-compat
     'pericmd_run_suite_ok',
@@ -292,8 +290,8 @@ sub pericmd_run_test_groups_ok {
 
             if ($include_tags) {
                 my $found;
-                for (@$tags) {
-                    if ($_ ~~ @$include_tags) {
+                for my $tag (@$tags) {
+                    if (grep { $_ eq $tag } @$include_tags) {
                         $found++; last;
                     }
                 }
@@ -304,8 +302,8 @@ sub pericmd_run_test_groups_ok {
                 }
             }
             if ($exclude_tags) {
-                for (@$tags) {
-                    if ($_ ~~ @$exclude_tags) {
+                for my $tag (@$tags) {
+                    if (grep { $_ eq $tag } @$exclude_tags) {
                         plan skip_all => "Has one of the exclude_tag: $_";
                         return;
                     }
